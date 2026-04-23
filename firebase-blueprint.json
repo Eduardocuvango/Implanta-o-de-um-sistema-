@@ -1,0 +1,100 @@
+{
+  "entities": {
+    "Patient": {
+      "title": "Paciente",
+      "description": "Registro de atendimento pediátrico",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "gender": { "type": "string", "enum": ["Masculino", "Feminino", "Outro"] },
+        "birthDate": { "type": "string", "format": "date-time" },
+        "age": { "type": "integer" },
+        "ageGroup": { "type": "string" },
+        "occurrenceDate": { "type": "string", "format": "date-time" },
+        "entryTime": { "type": "string", "format": "date-time" },
+        "exitTime": { "type": "string", "format": "date-time" },
+        "serviceDuration": { "type": "integer" },
+        "status": { "type": "string", "enum": ["Atendido", "Em Espera"] },
+        "weight": { "type": "number" },
+        "temperature": { "type": "number" },
+        "bloodPressure": { "type": "string" },
+        "province": { "type": "string" },
+        "city": { "type": "string" },
+        "occurrenceType": { "type": "string" },
+        "signalsSymptoms": { "type": "string" },
+        "diagnosis": { "type": "string" },
+        "priority": { "type": "string", "enum": ["Baixa", "Média", "Alta", "Emergência"] },
+        "state": { "type": "string", "enum": ["Internado", "Atendido", "Transferido", "Alta", "Óbito"] },
+        "receptionistId": { "type": "string" },
+        "receptionistSignature": { "type": "string" },
+        "deathReason": { "type": "string" }
+      },
+      "required": ["name", "gender", "birthDate", "status", "receptionistId"]
+    },
+    "User": {
+      "title": "Usuário",
+      "description": "Usuário do sistema (Recepcionista ou Admin)",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "staff"] },
+        "signature": { "type": "string" }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "Doctor": {
+      "title": "Médico",
+      "description": "Médicos do corpo clínico",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "specialty": { "type": "string" },
+        "active": { "type": "boolean" }
+      }
+    },
+    "Settings": {
+      "title": "Configurações",
+      "description": "Configurações globais de alertas",
+      "type": "object",
+      "properties": {
+        "alertEmail": { "type": "string" },
+        "alertPhone": { "type": "string" },
+        "alertThreshold": { "type": "integer" }
+      }
+    }
+  },
+  "firestore": {
+    "patients": {
+      "schema": "Patient",
+      "description": "Lista de atendimentos no hospital"
+    },
+    "users": {
+      "schema": "User",
+      "description": "Usuários do sistema"
+    },
+    "doctors": {
+      "schema": "Doctor",
+      "description": "Cadastro de corpo clínico"
+    },
+    "settings": {
+      "schema": "Settings",
+      "description": "Parâmetros de alerta"
+    },
+    "authorized_users": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "email": { "type": "string" },
+          "role": { "type": "string", "enum": ["staff"] },
+          "addedBy": { "type": "string" },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "description": "Lista de emails autorizados a aceder ao sistema"
+    }
+  }
+}
