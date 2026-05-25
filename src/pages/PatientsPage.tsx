@@ -55,6 +55,60 @@ const PEDIATRIC_DIAGNOSES = [
   "Desnutrição Aguda Grave (Marasmo / Kwashiorkor)"
 ];
 
+const ANGOLA_PROVINCES = [
+  "Huíla",
+  "Luanda",
+  "Benguela",
+  "Huambo",
+  "Namibe",
+  "Cunene",
+  "Cabinda",
+  "Cuanza Norte",
+  "Cuanza Sul",
+  "Malanje",
+  "Uíge",
+  "Zaire",
+  "Bié",
+  "Moxico",
+  "Lunda Norte",
+  "Lunda Sul",
+  "Cuando Cubango",
+  "Bengo"
+];
+
+const HUILA_MUNICIPALITIES = [
+  "Lubango",
+  "Chibia",
+  "Humpata",
+  "Cacula",
+  "Matala",
+  "Quipungo",
+  "Chicomba",
+  "Caluquembe",
+  "Caconda",
+  "Gambos",
+  "Chipindo",
+  "Kuvango",
+  "Quilengues",
+  "Jamba"
+];
+
+const LUBANGO_NEIGHBORHOODS = [
+  "Tchioco",
+  "Mapunda",
+  "Nambambe",
+  "Santo António",
+  "Centro da Cidade",
+  "Laureanos",
+  "Lucrécia",
+  "João de Almeida",
+  "Comandante Cowboy",
+  "Arco-Íris",
+  "Senzala",
+  "Mitcha",
+  "Bula"
+];
+
 export default function PatientsPage() {
   const { user, profile } = useAuth();
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -90,6 +144,7 @@ export default function PatientsPage() {
     bloodPressure: "",
     province: "Huíla",
     city: "Lubango",
+    neighborhood: "Tchioco",
     occurrenceType: "",
     signalsSymptoms: "",
     diagnosis: "",
@@ -377,8 +432,8 @@ export default function PatientsPage() {
                     <div className="italic text-slate-500">
                       {p.occurrenceType}
                     </div>
-                    <div className="text-[10px] text-slate-400 uppercase tracking-widest">
-                      {p.city}
+                    <div className="text-[10px] text-slate-400 uppercase tracking-widest font-black">
+                      {p.city} {p.neighborhood ? `• Bairro ${p.neighborhood}` : ""}
                     </div>
                   </td>
                   <td className="px-6 py-4 text-right">
@@ -956,14 +1011,68 @@ export default function PatientsPage() {
 
               <div className="space-y-1">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                  Província / Cidade
+                  Província
                 </label>
-                <div className="flex gap-1">
-                  <input
-                    disabled
-                    value={formData.province}
-                    className="form-input w-24 bg-slate-100"
-                  />
+                <select
+                  value={formData.province}
+                  onChange={(e) => {
+                    const prov = e.target.value;
+                    setFormData({
+                      ...formData,
+                      province: prov,
+                      city: prov === "Huíla" ? "Lubango" : "",
+                      neighborhood: prov === "Huíla" ? "Tchioco" : "",
+                    });
+                  }}
+                  className="form-input font-bold"
+                >
+                  {ANGOLA_PROVINCES.map((p) => (
+                    <option key={p} value={p}>
+                      {p}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                  Município / Cidade
+                </label>
+                {formData.province === "Huíla" ? (
+                  <div className="space-y-1.5">
+                    <select
+                      value={HUILA_MUNICIPALITIES.includes(formData.city) ? formData.city : "Outro"}
+                      onChange={(e) => {
+                        const m = e.target.value;
+                        setFormData({
+                          ...formData,
+                          city: m === "Outro" ? "" : m,
+                          neighborhood: m === "Lubango" ? "Tchioco" : "",
+                        });
+                      }}
+                      className="form-input font-bold text-slate-800"
+                    >
+                      {HUILA_MUNICIPALITIES.map((mun) => (
+                        <option key={mun} value={mun}>
+                          {mun}
+                        </option>
+                      ))}
+                      <option value="Outro">Outro...</option>
+                    </select>
+                    {!HUILA_MUNICIPALITIES.includes(formData.city) && (
+                      <input
+                        required
+                        type="text"
+                        value={formData.city}
+                        onChange={(e) =>
+                          setFormData({ ...formData, city: e.target.value })
+                        }
+                        className="form-input border-blue-400/80 text-xs py-2 bg-blue-50/20 font-semibold"
+                        placeholder="Especifique o município..."
+                      />
+                    )}
+                  </div>
+                ) : (
                   <input
                     required
                     type="text"
@@ -971,9 +1080,65 @@ export default function PatientsPage() {
                     onChange={(e) =>
                       setFormData({ ...formData, city: e.target.value })
                     }
-                    className="form-input flex-1"
+                    className="form-input"
+                    placeholder="Escreva o município/cidade..."
                   />
-                </div>
+                )}
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                  Bairro / Localidade
+                </label>
+                {formData.province === "Huíla" && formData.city === "Lubango" ? (
+                  <div className="space-y-1.5">
+                    <select
+                      value={
+                        formData.neighborhood && LUBANGO_NEIGHBORHOODS.includes(formData.neighborhood)
+                          ? formData.neighborhood
+                          : "Outro"
+                      }
+                      onChange={(e) => {
+                        const b = e.target.value;
+                        setFormData({
+                          ...formData,
+                          neighborhood: b === "Outro" ? "" : b,
+                        });
+                      }}
+                      className="form-input font-bold text-slate-800"
+                    >
+                      {LUBANGO_NEIGHBORHOODS.map((b) => (
+                        <option key={b} value={b}>
+                          {b}
+                        </option>
+                      ))}
+                      <option value="Outro">Outro...</option>
+                    </select>
+                    {(!formData.neighborhood || !LUBANGO_NEIGHBORHOODS.includes(formData.neighborhood)) && (
+                      <input
+                        required
+                        type="text"
+                        value={formData.neighborhood || ""}
+                        onChange={(e) =>
+                          setFormData({ ...formData, neighborhood: e.target.value })
+                        }
+                        className="form-input border-blue-400/80 text-xs py-2 bg-blue-50/20 font-semibold"
+                        placeholder="Especifique o bairro..."
+                      />
+                    )}
+                  </div>
+                ) : (
+                  <input
+                    required
+                    type="text"
+                    value={formData.neighborhood || ""}
+                    onChange={(e) =>
+                      setFormData({ ...formData, neighborhood: e.target.value })
+                    }
+                    className="form-input"
+                    placeholder="Escreva o bairro..."
+                  />
+                )}
               </div>
 
               <div className="space-y-1">

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { patientService } from '../services/patientService';
 import { Patient } from '../types';
+import InteractiveMap from '../components/InteractiveMap';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   PieChart, Pie, Cell, Legend
@@ -235,6 +236,9 @@ export default function DashboardPage() {
             )}
          </div>
       </div>
+
+      {/* INTERACTIVE GEOGRAPHIC RISK & HEATMAP CARD */}
+      <InteractiveMap patients={patients} />
 
       {/* DETAILED STATS GRID */}
       <div className="grid grid-cols-12 gap-8">

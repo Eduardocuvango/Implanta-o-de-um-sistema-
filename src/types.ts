@@ -53,6 +53,7 @@ export interface Patient {
   bloodPressure?: string;
   province: string;
   city: string;
+  neighborhood?: string;
   occurrenceType: string;
   signalsSymptoms: string;
   diagnosis?: string;
