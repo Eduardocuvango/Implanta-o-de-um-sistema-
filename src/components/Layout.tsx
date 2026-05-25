@@ -30,9 +30,8 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentView, onNavigat
   }, [profile]);
 
   const menuItems = [
-    { id: 'landing', label: 'Dashboard Resumo', icon: Home, show: true },
+    { id: 'dashboard', label: 'Dashboard Resumo (IA)', icon: Home, show: profile?.role === 'admin' },
     { id: 'patients', label: 'Recolha de Dados', icon: TableIcon, show: !!user },
-    { id: 'dashboard', label: 'Análise Estratégica', icon: LayoutDashboard, show: profile?.role === 'admin' },
     { id: 'settings', label: 'Admin / Alertas', icon: Settings, show: profile?.role === 'admin' },
     { id: 'profile', label: 'Perfil / Config', icon: User, show: !!user },
   ].filter(item => item.show);

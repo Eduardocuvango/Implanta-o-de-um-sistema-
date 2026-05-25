@@ -4,29 +4,40 @@ import { patientService } from '../services/patientService';
 import { Patient } from '../types';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
-  PieChart, Pie, Cell, LineChart, Line, AreaChart, Area
+  PieChart, Pie, Cell, Legend
 } from 'recharts';
 import { 
   Activity, Users, Clock, AlertTriangle, TrendingUp, 
-  Map as MapIcon, BrainCircuit, Lightbulb, Info, Loader2
+  Map as MapIcon, BrainCircuit, Lightbulb, Info, Loader2, Sparkles,
+  UserCheck, Baby, HeartPulse, History
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { cn } from '../lib/utils';
-import { GoogleGenAI } from "@google/genai";
-
-const COLORS = ['#5A5A40', '#141414', '#8E8E7A', '#C4C4B5', '#E4E3E0'];
 
 export default function DashboardPage() {
   const { profile } = useAuth();
   const [patients, setPatients] = useState<Patient[]>([]);
   const [aiInsights, setAiInsights] = useState<string>('');
   const [loadingAi, setLoadingAi] = useState(false);
+  const [lastSync, setLastSync] = useState<Date>(new Date());
+  const lastAnalysis = React.useRef<number>(0);
 
   useEffect(() => {
-    return patientService.subscribe(setPatients);
+    return patientService.subscribe((data) => {
+      setPatients(data);
+      setLastSync(new Date());
+    });
   }, []);
 
-  // Descriptive Data
+  // Automated Real-time Analysis
+  useEffect(() => {
+    if (patients.length > 0 && Date.now() - lastAnalysis.current > 300000) { // 5 minutes throttle
+      generateAiInsights();
+      lastAnalysis.current = Date.now();
+    }
+  }, [patients.length]);
+
+  // Descriptive Data Calculations
   const stats = {
     total: patients.length,
     waiting: patients.filter(p => p.status === 'Em Espera').length,
@@ -40,18 +51,54 @@ export default function DashboardPage() {
     }
   };
 
-  const statusData = [
-    { name: 'Em Espera', value: stats.waiting, color: '#f59e0b' },
-    { name: 'Atendidos', value: stats.attended, color: '#2563eb' }
-  ];
+  // 1. Gender Distribution (Male vs Female Chart)
+  const maleCount = patients.filter(p => p.gender === 'Masculino').length;
+  const femaleCount = patients.filter(p => p.gender === 'Feminino').length;
+  const otherGenderCount = patients.filter(p => p.gender !== 'Masculino' && p.gender !== 'Feminino').length;
 
-  const outcomeData = [
-    { name: 'Internado', value: stats.outcomes.internados, color: '#f59e0b' },
-    { name: 'Transferido', value: stats.outcomes.transferidos, color: '#64748b' },
-    { name: 'Alta', value: stats.outcomes.alta, color: '#10b981' },
+  const genderData = [
+    { name: 'Masculino', value: maleCount, color: '#0ea5e9' }, // Cyan
+    { name: 'Feminino', value: femaleCount, color: '#ec4899' } // Pink
+  ];
+  if (otherGenderCount > 0) {
+    genderData.push({ name: 'Outro', value: otherGenderCount, color: '#a855f7' }); // Purple
+  }
+
+  // 2. Dynamic Pediatric Age Groups Chart (Neonatos, Lactentes, Pediátricos)
+  const ageGroupsMapped = patients.reduce((acc: { [key: string]: number }, p) => {
+    const group = p.ageGroup || 'Não Consta';
+    acc[group] = (acc[group] || 0) + 1;
+    return acc;
+  }, {});
+
+  const ageColors = ['#6366f1', '#10b981', '#f59e0b', '#3b82f6', '#8b5cf6'];
+  const ageGroupData = Object.entries(ageGroupsMapped).map(([name, value], i) => ({
+    name,
+    value,
+    color: ageColors[i % ageColors.length]
+  }));
+
+  // 3. Epidemiological Common Symptoms (Occurrence types) Chart
+  const symptomDataMap = patients.reduce((acc: { [key: string]: number }, p) => {
+    const symptom = p.occurrenceType || 'Outro';
+    acc[symptom] = (acc[symptom] || 0) + 1;
+    return acc;
+  }, {});
+
+  const commonSymptomsData = Object.entries(symptomDataMap)
+    .map(([name, value]) => ({ name, value: Number(value) }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 5);
+
+  // 4. Clinical Outcomes Distribution
+  const outcomesData = [
+    { name: 'Alta Médica', value: stats.outcomes.alta, color: '#10b981' },
+    { name: 'Internamento', value: stats.outcomes.internados, color: '#3b82f6' },
+    { name: 'Transferido', value: stats.outcomes.transferidos, color: '#f59e0b' },
     { name: 'Óbito', value: stats.outcomes.obitos, color: '#ef4444' }
   ];
 
+  // Geolocation risk breakdown
   const cityData = Array.from(new Set(patients.map(p => p.city))).map(city => ({
     name: city,
     value: patients.filter(p => p.city === city).length
@@ -60,17 +107,27 @@ export default function DashboardPage() {
   const generateAiInsights = async () => {
     setLoadingAi(true);
     try {
-      const ai = new GoogleGenAI(process.env.GEMINI_API_KEY!);
-      const model = ai.getGenerativeModel({ model: "gemini-2.0-flash" });
-      const dataSummary = `Total: ${stats.total}, Espera: ${stats.waiting}, Criticos: ${stats.critical}, Obitos: ${stats.outcomes.obitos}, Cidades: ${JSON.stringify(cityData)}`;
+      const dataSummary = `Total: ${stats.total}, Atendidos: ${stats.attended}, Espera: ${stats.waiting}, Criticos: ${stats.critical}, Obitos: ${stats.outcomes.obitos}, Masculino: ${maleCount}, Feminino: ${femaleCount}, Top Cidades: ${JSON.stringify(cityData)}`;
       
-      const prompt = `Como analista pediátrico do Hospital Pioneiro Zeca, faça uma análise estratégica curta (150 palavras) dos dados: ${dataSummary}. Foque em previsão semanal e recomendações de gestão. Use tom técnico.`;
+      const prompt = `Como analista clínico pediátrico sénior do Hospital Pioneiro Zeca, faça uma análise resumida extremamente profissional e humanizada daquilo que os dados indicam (aproximadamente 120-140 palavras). Aborde padrões epidemiológicos relativos ao género (Masculino vs Feminino) e surtos nas localidades do Lubango de forma inteligente.`;
 
-      const result = await model.generateContent(prompt);
-      setAiInsights(result.response.text());
+      const response = await fetch("/api/ai-insights", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ dataSummary, prompt })
+      });
+
+      if (!response.ok) {
+        throw new Error("Falha no servidor analítico.");
+      }
+
+      const resData = await response.json();
+      setAiInsights(resData.text || 'Sem insights disponíveis de momento.');
     } catch (err) {
       console.error(err);
-      setAiInsights('Erro ao conectar com o serviço de IA.');
+      setAiInsights('Para ativar a sincronização automatizada dos gráficos em tempo real e consultar a Inteligência Artificial, ligue a chave GEMINI_API_KEY no painel de Definições.');
     } finally {
       setLoadingAi(false);
     }
@@ -79,287 +136,505 @@ export default function DashboardPage() {
   if (profile?.role !== 'admin') {
     return (
       <div className="flex h-[60vh] flex-col items-center justify-center gap-4 text-center">
-        <AlertTriangle className="h-16 w-16 text-amber-500" />
+        <AlertTriangle className="h-16 w-16 text-amber-500 animate-pulse" />
         <h1 className="text-2xl font-bold tracking-tight">Acesso Restrito</h1>
         <p className="max-w-md text-slate-500 text-sm">Contate o administrador do Hospital Pioneiro Zeca para obter permissões de visualização analítica.</p>
       </div>
     );
   }
 
+  // Calculate percentage of treatment completions
+  const rateCompletion = stats.total > 0 ? Math.round((stats.attended / stats.total) * 100) : 0;
+
   return (
-    <div className="space-y-8 max-w-7xl mx-auto pb-20">
-      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-             <div className="w-2 h-2 rounded-full bg-red-500 animate-ping"></div>
-             <span className="text-[10px] font-black uppercase tracking-widest text-[#0f172a]">LIVE: Comando Central Epidemiológico</span>
+    <div className="space-y-8 max-w-7xl mx-auto pb-20 px-4 sm:px-6">
+      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 bg-slate-900 text-white p-6 sm:p-8 rounded-[2rem] shadow-xl relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-950 opacity-90"></div>
+        <div className="relative z-10">
+          <div className="flex items-center gap-2 mb-2">
+             <div className="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping"></div>
+             <span className="text-[10px] font-black uppercase tracking-widest text-[#60a5fa]">PAINEL ANALÍTICO CENTRAL (PIONEIRO ZECA)</span>
           </div>
-          <h1 className="text-4xl font-black text-slate-900 tracking-tighter uppercase leading-none">Pioneiro Zeca <span className="text-blue-600">Pulse</span></h1>
-          <p className="text-slate-500 text-sm font-medium mt-1">Interligação estratégica de dados clínicos e monitorização de surtos</p>
+          <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tighter uppercase leading-none">
+            INDICADORES <span className="text-blue-400">PEDIÁTRICOS</span>
+          </h1>
+          <div className="flex flex-wrap items-center gap-4 mt-3">
+            <p className="text-slate-300 text-xs sm:text-sm font-medium">Relatórios e monitorização estatística em tempo real</p>
+            <div className="flex items-center gap-2 px-3 py-1 bg-emerald-500/10 rounded-full border border-emerald-500/20">
+               <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></div>
+               <span className="text-[9px] font-bold uppercase text-emerald-300 tracking-wider">Base Atualizada: {lastSync.toLocaleTimeString()}</span>
+            </div>
+          </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="relative z-10 flex items-center gap-3">
           <button 
             onClick={generateAiInsights}
             disabled={loadingAi || patients.length === 0}
-            className="group flex items-center gap-3 px-6 py-3 bg-[#0f172a] text-white rounded-2xl hover:bg-slate-800 text-xs font-black shadow-2xl transition-all disabled:opacity-50 active:scale-95 uppercase tracking-widest"
+            className="group flex items-center gap-3 px-6 py-3.5 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl text-xs font-black shadow-lg shadow-blue-600/30 transition-all disabled:opacity-50 active:scale-95 uppercase tracking-wider"
           >
-            {loadingAi ? <Activity className="h-4 w-4 animate-spin" /> : <BrainCircuit className="h-5 w-5 text-blue-400 group-hover:rotate-12 transition-transform" />}
-            {loadingAi ? 'ANALISANDO FLUXO...' : 'CONSULTAR INTELIGÊNCIA CLÍNICA'}
+            {loadingAi ? <Loader2 className="h-4 w-4 animate-spin" /> : <BrainCircuit className="h-5 w-5 text-blue-200 group-hover:rotate-12 transition-transform" />}
+            {loadingAi ? 'A Sincronizar IA...' : 'GERAR INSIGHTS CO-PILOT'}
           </button>
         </div>
       </header>
 
-      {/* Metrics Row - Refined with Glassmorphism / Professional Polish */}
+      {/* METRIC CARD ROW - TOTAL PATIENTS TREATED AND REGISTERED ADDED EXPLICITLY */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <MetricCard icon={Users} label="Atendimento Hoy" value={stats.attended} trend="+12%" trendColor="text-emerald-600" color="text-blue-600" border="border-blue-100 bg-blue-50/20" />
-        <MetricCard icon={Activity} label="Taxa de Ocupação" value="82%" subtitle="Leitos de Internamento" color="text-amber-600" border="border-amber-100 bg-amber-50/20" />
-        <MetricCard icon={Clock} label="Tempo Médio" value="28 min" subtitle="Espera para Triagem" color="text-purple-600" border="border-purple-100 bg-purple-50/20" />
-        <MetricCard icon={AlertTriangle} label="Alerta Crítico" value={stats.critical} color="text-red-700" isAlert={stats.critical > 0} border="border-red-100 bg-red-50/30" />
+        <MetricCard 
+          icon={Users} 
+          label="Total de Pacientes" 
+          value={stats.total} 
+          subtitle="Registados no sistema" 
+          color="text-slate-900" 
+          iconBg="bg-slate-100 text-slate-700"
+          border="border-slate-200 bg-white" 
+        />
+        <MetricCard 
+          icon={UserCheck} 
+          label="Total de Atendidos" 
+          value={stats.attended} 
+          subtitle={`${rateCompletion}% de sucesso clínico`}
+          color="text-emerald-700" 
+          iconBg="bg-emerald-50 text-emerald-600"
+          border="border-emerald-100 bg-emerald-100/10" 
+        />
+        <MetricCard 
+          icon={Clock} 
+          label="Fila de Espera" 
+          value={stats.waiting} 
+          subtitle="Aguardando atendimento" 
+          color="text-amber-700" 
+          iconBg="bg-amber-50 text-amber-600"
+          border="border-amber-100 bg-amber-50/20" 
+        />
+        <MetricCard 
+          icon={AlertTriangle} 
+          label="Emergência Crítica" 
+          value={stats.critical} 
+          subtitle="Casos clínicos urgentes" 
+          color="text-red-700" 
+          iconBg="bg-red-50 text-red-600"
+          border="border-red-100 bg-red-50/40" 
+          isAlert={stats.critical > 0} 
+        />
       </div>
 
-      {/* EMERGENCY PULSE TICKER */}
-      <div className="bg-[#0f172a] rounded-3xl p-4 overflow-hidden shadow-2xl border border-slate-800">
+      {/* EMERGENCY PATIENT CURRENT QUEUE TICKER */}
+      <div className="bg-slate-950 rounded-2xl p-4 overflow-hidden shadow-md border border-slate-800">
          <div className="flex items-center gap-4 animate-marquee whitespace-nowrap">
             {patients.filter(p => p.status === 'Em Espera').map(p => (
-               <div key={p.id} className="flex items-center gap-2 bg-white/5 px-4 py-2 rounded-full border border-white/10">
-                  <div className={cn("w-2 h-2 rounded-full", p.priority === 'Emergência' ? "bg-red-500 animate-pulse" : "bg-blue-500")}></div>
-                  <span className="text-[10px] font-bold text-white uppercase tracking-widest">{p.name} • {p.occurrenceType} • {new Date(p.entryTime).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit'})}</span>
+               <div key={p.id} className="flex items-center gap-2 bg-slate-900 px-4 py-2 rounded-xl border border-slate-850">
+                  <div className={cn("w-2 h-2 rounded-full", p.priority === 'Emergência' ? "bg-red-500 animate-pulse" : "bg-cyan-500")}></div>
+                  <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">{p.name} • {p.occurrenceType} • {new Date(p.entryTime).toLocaleTimeString([], { hour:'2-digit', minute:'2-digit'})}</span>
                </div>
             ))}
             {patients.filter(p => p.status === 'Em Espera').length === 0 && (
-               <div className="text-white/30 text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 w-full justify-center">
-                  <Info className="h-3 w-3" /> Fila de Espera Vazia - Fluxo Controlado
+               <div className="text-slate-500 text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 w-full justify-center py-1">
+                  <Info className="h-3.5 w-3.5 text-blue-500" /> Fila de Espera Pediátrica Vazia - Fluxo Totalmente Controlado
                </div>
             )}
          </div>
       </div>
 
+      {/* DETAILED STATS GRID */}
       <div className="grid grid-cols-12 gap-8">
-        {/* EPIDEMIOLOGICAL RADAR */}
-        <div className="col-span-12 lg:col-span-8 space-y-6">
-           <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm relative overflow-hidden group">
-              <div className="absolute -top-10 -right-10 w-40 h-40 bg-blue-50 rounded-full blur-3xl opacity-50 group-hover:opacity-100 transition-opacity"></div>
-              
-              <div className="flex items-center justify-between mb-10">
-                <div className="flex items-center gap-3">
-                   <div className="bg-slate-900 p-3 rounded-2xl shadow-lg">
-                      <MapIcon className="h-6 w-6 text-blue-400" />
-                   </div>
-                   <div>
-                      <h2 className="text-2xl font-black text-slate-900 tracking-tight uppercase">Radar Epidemiológico</h2>
-                      <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Huíla / Lubango - Mapa de Calor</p>
-                   </div>
-                </div>
-                <div className="flex items-center gap-2">
-                   <div className="flex -space-x-2">
-                      <div className="w-8 h-8 rounded-full border-2 border-white bg-red-500"></div>
-                      <div className="w-8 h-8 rounded-full border-2 border-white bg-amber-500 text-[10px] flex items-center justify-center font-bold text-white uppercase">H3N2</div>
-                   </div>
-                   <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Áreas de Risco</span>
-                </div>
+        {/* Epidemic, Symptoms and Outcomes (Line & Bar reports) */}
+        <div className="col-span-12 lg:col-span-8 space-y-8">
+          
+          {/* Epidemiological Surtos & Prevalência de Sintomas */}
+          <div className="bg-white p-6 sm:p-8 rounded-[2rem] border border-slate-200 shadow-sm">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="bg-blue-50 p-3 rounded-2xl">
+                <HeartPulse className="h-6 w-6 text-blue-600" />
               </div>
-              
-              <div className="grid grid-cols-2 gap-8">
-                 <div className="space-y-4">
-                    {cityData.map((city, idx) => (
-                      <div key={city.name} className="flex items-center gap-4 bg-slate-50 p-4 rounded-3xl border border-slate-100 hover:bg-white hover:shadow-xl transition-all hover:-translate-y-1">
-                        <div className={cn(
-                          "w-12 h-12 rounded-2xl flex items-center justify-center font-black text-xs shadow-inner",
-                          idx === 0 ? "bg-red-500/10 text-red-600" : "bg-blue-500/10 text-blue-600"
-                        )}>
-                          {city.value}
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{idx === 0 ? 'Surto Detectado' : 'Monitorização'}</p>
-                          <p className="text-lg font-bold text-slate-900 tracking-tighter">{city.name}</p>
-                        </div>
-                        <TrendingUp className={cn("h-4 w-4", idx === 0 ? "text-red-500" : "text-slate-300")} />
-                      </div>
-                    ))}
-                    {cityData.length === 0 && <div className="text-slate-300 text-sm italic font-medium p-8 bg-slate-50 rounded-3xl border border-dashed text-center">Nenhum dado geográfico disponível no momento.</div>}
-                 </div>
+              <div>
+                <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight">Ocorrências & Surtos Epidemiológicos</h3>
+                <p className="text-xs text-slate-500 font-medium">Prevalência de sintomas e patologias comuns catalogadas</p>
+              </div>
+            </div>
 
-                 <div className="relative bg-slate-900 rounded-[2rem] border-8 border-slate-950 shadow-inner overflow-hidden flex items-center justify-center">
-                    <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20"></div>
-                    <div className="relative z-10 text-center animate-pulse">
-                       <MapIcon className="h-20 w-20 text-blue-500 opacity-20 mx-auto mb-4" />
-                       <p className="text-[10px] font-black text-blue-500 uppercase tracking-[0.3em]">Vista Satélite de Risco</p>
-                       <p className="text-white/40 text-[9px] uppercase font-bold mt-2">Sincronizando com SIS-Angola...</p>
-                    </div>
-                    {/* Visual markers */}
-                    <div className="absolute top-1/4 left-1/4 w-8 h-8 bg-red-500/20 rounded-full flex items-center justify-center border border-red-500/40">
-                       <div className="w-2 h-2 bg-red-500 rounded-full animate-ping"></div>
-                    </div>
-                    <div className="absolute bottom-1/3 right-1/4 w-12 h-12 bg-blue-500/10 rounded-full flex items-center justify-center border border-blue-500/30">
-                       <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
-                    </div>
-                 </div>
-              </div>
-           </div>
+            <div className="h-[280px] w-full">
+              {commonSymptomsData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={commonSymptomsData} layout="vertical" margin={{ left: 20, right: 20, top: 10, bottom: 10 }}>
+                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
+                    <XAxis type="number" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#64748b' }} />
+                    <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#334155', fontWeight: 'bold' }} width={110} />
+                    <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }} />
+                    <Bar dataKey="value" fill="#3b82f6" radius={[0, 8, 8, 0]} barSize={20}>
+                      {commonSymptomsData.map((entry, idx) => {
+                        const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ec4899', '#6366f1'];
+                        return <Cell key={`cell-${idx}`} fill={colors[idx % colors.length]} />;
+                      })}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-full flex flex-col items-center justify-center text-center text-slate-400">
+                  <Activity className="h-10 w-10 stroke-1 stroke-slate-300 mb-2 animate-pulse" />
+                  <p className="text-sm">Nenhum dado epidemiológico registado de momento.</p>
+                </div>
+              )}
+            </div>
+          </div>
 
-           <div className="bg-white rounded-[2.5rem] p-8 border border-slate-200 shadow-sm overflow-hidden">
-              <div className="flex items-center justify-between mb-8">
-                 <div className="flex items-center gap-3">
-                    <div className="bg-amber-50 p-2.5 rounded-2xl">
-                       <TrendingUp className="h-6 w-6 text-amber-600" />
-                    </div>
-                    <div>
-                       <h2 className="text-xl font-black text-slate-800 tracking-tight uppercase">Fluxo de Triagem Semanal</h2>
-                       <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Volume de atendimentos vs Capacidade</p>
-                    </div>
-                 </div>
+          {/* Outcomes report (Desfecho Clínico) */}
+          <div className="bg-white p-6 sm:p-8 rounded-[2rem] border border-slate-200 shadow-sm">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="bg-emerald-50 p-3 rounded-2xl">
+                <UserCheck className="h-6 w-6 text-emerald-600" />
               </div>
-              <div className="h-[250px] w-full">
-                 <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={cityData.map((d, i) => ({ name: d.name, value: d.value + (i * 5), capacity: 50 }))}>
-                       <defs>
-                          <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                             <stop offset="5%" stopColor="#2563eb" stopOpacity={0.3}/>
-                             <stop offset="95%" stopColor="#2563eb" stopOpacity={0}/>
-                          </linearGradient>
-                       </defs>
-                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                       <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 'bold' }} />
-                       <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8' }} />
-                       <Tooltip contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)' }} />
-                       <Area type="monotone" dataKey="value" stroke="#2563eb" strokeWidth={3} fillOpacity={1} fill="url(#colorValue)" />
-                    </AreaChart>
-                 </ResponsiveContainer>
+              <div>
+                <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight">Desfecho Clínico (Outcomes)</h3>
+                <p className="text-xs text-slate-500 font-medium">Estado final de saída dos pacientes internados de urgência</p>
               </div>
-           </div>
+            </div>
+
+            <div className="h-[240px] w-full">
+              {patients.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={outcomesData} margin={{ top: 10, right: 10, left: 0, bottom: 10 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#64748b' }} />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#64748b' }} />
+                    <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid #e2e8f0' }} />
+                    <Bar dataKey="value" radius={[8, 8, 0, 0]} barSize={40}>
+                      {outcomesData.map((entry, idx) => (
+                        <Cell key={`cell-${idx}`} fill={entry.color} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-full flex flex-col items-center justify-center text-center text-slate-400">
+                  <p className="text-sm">Sem dados de alta ou internamento para analisar.</p>
+                </div>
+              )}
+            </div>
+          </div>
+
         </div>
 
         {/* AI INSIGHTS & UTILITY SIDEBAR */}
         <div className="col-span-12 lg:col-span-4 space-y-8">
-          <div className="bg-[#0f172a] rounded-[2.5rem] p-10 text-white shadow-2xl relative overflow-hidden border border-slate-800">
-             <div className="absolute top-0 right-0 p-6 opacity-10">
-                <BrainCircuit className="h-24 w-24" />
+          
+          {/* AI Advisor Block with glowing border */}
+          <div className="bg-slate-900 rounded-[2rem] p-8 text-white shadow-2xl relative overflow-hidden border border-slate-800">
+             <div className="absolute top-0 right-0 p-6 opacity-5">
+                <BrainCircuit className="h-28 w-28 text-blue-400 animate-pulse" />
              </div>
              
-             <div className="relative z-10 flex flex-col items-center text-center">
-                <div className="bg-blue-600 p-4 rounded-3xl shadow-xl shadow-blue-600/20 mb-6">
-                   <Sparkles className="h-10 w-10 text-white" />
+             <div className="relative z-10 flex flex-col">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="bg-blue-600 p-3 rounded-2xl shadow-lg shadow-blue-600/20">
+                     <Sparkles className="h-6 w-6 text-white animate-pulse" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-black uppercase tracking-tight">AI Co-Pilot Clinic</h3>
+                    <p className="text-[10px] text-blue-400 font-bold uppercase tracking-widest">Análise do Hospital</p>
+                  </div>
                 </div>
-                <h3 className="text-2xl font-black mb-2 uppercase tracking-tighter">AI Co-Pilot Advisor</h3>
-                <p className="text-xs text-blue-400 font-extrabold uppercase tracking-[0.2em] mb-8">Clinical Intelligence</p>
                 
-                <div className="bg-white/5 rounded-3xl p-6 border border-white/10 italic text-[11px] leading-relaxed text-slate-300 font-medium mb-8 min-h-[150px] flex items-center justify-center">
+                <div className="bg-slate-800/100 border border-slate-700/50 rounded-2xl p-5 text-xs leading-relaxed text-slate-200 mb-6 min-h-[170px] flex items-center justify-center">
                    {aiInsights ? (
-                     <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
-                        "{aiInsights}"
+                     <div className="space-y-2">
+                        <p className="font-medium whitespace-pre-line">"{aiInsights}"</p>
                      </div>
                    ) : (
-                     "Aguardando análise estratégica do sistema para recomendações de desalfandegagem de recursos e redireccionamento de equipas."
+                     <div className="text-center text-slate-400 text-xs italic">
+                        Clique no botão acima ou aguarde para solicitar uma análise epidemiológica estratégica com Inteligência Artificial baseada no histórico actual.
+                     </div>
                    )}
                 </div>
                 
                 <button 
                   onClick={generateAiInsights}
-                  disabled={loadingAi}
-                  className="w-full bg-white text-slate-900 py-4 rounded-2xl text-[10px] font-black uppercase tracking-[0.15em] transition-all hover:bg-blue-50 hover:shadow-2xl shadow-white/10 active:scale-95 disabled:opacity-50 flex items-center justify-center gap-3"
+                  disabled={loadingAi || patients.length === 0}
+                  className="w-full bg-blue-600 hover:bg-blue-500 text-white py-4 rounded-xl text-xs font-black uppercase tracking-wider transition-all hover:shadow-xl active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   {loadingAi ? <Loader2 className="h-4 w-4 animate-spin" /> : <TrendingUp className="h-4 w-4" />}
-                  {loadingAi ? 'PROCESSANDO REDE...' : 'SOLICITAR ANÁLISE DE SURTO'}
+                  {loadingAi ? 'ANALISANDO DADOS...' : 'Efetuar Nova Leitura IA'}
                 </button>
              </div>
           </div>
 
-          <div className="bg-blue-600 rounded-[2.5rem] p-8 text-white shadow-xl relative overflow-hidden group">
-             <div className="absolute inset-0 bg-gradient-to-br from-blue-700 to-indigo-800 opacity-100"></div>
+          {/* Clinician Assistant and backup advice */}
+          <div className="bg-gradient-to-br from-indigo-700 to-blue-800 text-white rounded-[2rem] p-8 shadow-md relative overflow-hidden">
+             <div className="absolute top-0 right-0 p-6 opacity-10">
+                <Lightbulb className="h-20 w-20" />
+             </div>
              <div className="relative z-10">
-                <div className="flex items-center gap-3 mb-4">
-                   <div className="bg-white/20 p-2 rounded-xl backdrop-blur-xl">
-                      <Lightbulb className="h-5 w-5" />
+                <div className="flex items-center gap-2 mb-3">
+                   <div className="bg-white/10 p-2 rounded-xl backdrop-blur-md">
+                      <Lightbulb className="h-5 w-5 text-amber-300" />
                    </div>
-                   <h3 className="text-lg font-black uppercase italic">Dica de Gestão</h3>
+                   <h3 className="text-base font-black uppercase tracking-tight">Alerta de Prevenção</h3>
                 </div>
-                <p className="text-sm font-medium text-blue-50 leading-relaxed mb-6">
-                   Baseado nos últimos 30 dias: Considere aumentar o stock de soro fisiológico e antitérmicos na secção de {cityData[0]?.name || 'Tchioco'}.
+                <p className="text-xs font-medium text-blue-50 leading-relaxed mb-4">
+                  De acordo com a incidência geográfica, sugerimos reforço na fiscalização vacinal e reservas médicas na zona de: <strong className="text-amber-300 underline">{cityData[0]?.name || 'Tchioco (Sede)'}</strong>.
                 </p>
-                <div className="h-1.5 bg-white/20 rounded-full overflow-hidden">
-                   <motion.div initial={{ width: 0 }} animate={{ width: '65%' }} className="h-full bg-white"></motion.div>
+                <div className="h-2 bg-black/20 rounded-full overflow-hidden">
+                   <motion.div initial={{ width: 0 }} animate={{ width: '70%' }} className="h-full bg-amber-400"></motion.div>
                 </div>
-                <p className="text-[9px] font-bold uppercase tracking-widest mt-2 opacity-60 text-center">Risco de Ruptura: 65%</p>
+                <div className="flex justify-between items-center mt-2 text-[9px] font-bold uppercase tracking-wider text-slate-200">
+                  <span>Risco Epidemiológico</span>
+                  <span className="text-amber-300">Alto (70%)</span>
+                </div>
              </div>
           </div>
+
         </div>
       </div>
 
-       {/* Pie Chart row */}
-       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-             <h3 className="font-bold text-slate-800 text-xs uppercase tracking-widest mb-6">Status Total</h3>
-             <div className="h-[200px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie data={statusData} innerRadius={60} outerRadius={80} paddingAngle={8} dataKey="value">
-                      {statusData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
-             </div>
-             <div className="flex justify-center gap-4 mt-2">
-                {statusData.map(d => (
-                  <div key={d.name} className="flex items-center gap-2">
-                    <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: d.color }} />
-                    <span className="text-[10px] font-bold text-slate-500">{d.name}</span>
-                  </div>
-                ))}
-             </div>
+      {/* DEMOGRAPHICS GRID - INCLUDES REQUESTED GENDER (MALE/FEMALE) ANALYSIS */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        
+        {/* 1. GENDER PIE CHART AS REQUESTED */}
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+          <div>
+            <div className="flex items-center gap-2 mb-4">
+              <Baby className="h-5 w-5 text-blue-500" />
+              <h3 className="font-black text-slate-800 text-sm uppercase tracking-tight">Distribuição por Género</h3>
+            </div>
+            <p className="text-xs text-slate-400 mb-4">Análise comparativa de taxa de admissão por sexo</p>
+          </div>
+          
+          <div className="h-[180px] w-full relative flex items-center justify-center">
+            {patients.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie 
+                    data={genderData} 
+                    innerRadius={45} 
+                    outerRadius={65} 
+                    paddingAngle={5} 
+                    dataKey="value"
+                    labelLine={false}
+                  >
+                    {genderData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(val) => [`${val} paciente(s)`, 'Quantidade']} />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <span className="text-xs text-slate-400 italic">Sem registros clínicos</span>
+            )}
           </div>
 
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 col-span-2 overflow-hidden">
-             <div className="p-4 bg-slate-50/50 border-b border-slate-100 flex items-center justify-between">
-                <h3 className="font-bold text-slate-800 text-xs uppercase tracking-widest">Registros Recentes</h3>
-                <span className="text-[10px] text-blue-600 font-bold uppercase tracking-tighter cursor-pointer hover:underline">Ver Triagem Completa</span>
-             </div>
-             <table className="w-full text-left">
-                <thead className="bg-slate-50 text-[10px] font-bold text-slate-500 uppercase tracking-tighter border-b">
-                  <tr>
-                    <th className="px-6 py-3">Paciente</th>
-                    <th className="px-6 py-3">Ocorrência</th>
-                    <th className="px-6 py-3">Prioridade</th>
-                    <th className="px-6 py-3">Horário</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {patients.slice(0, 5).map(p => (
-                    <tr key={p.id} className="text-xs hover:bg-slate-50">
-                      <td className="px-6 py-3 font-bold text-slate-900">{p.name}</td>
-                      <td className="px-6 py-3 text-slate-500 italic">{p.occurrenceType}</td>
-                      <td className="px-6 py-3">
-                        <div className={cn(
-                          "w-2 h-2 rounded-full",
-                          p.priority === 'Emergência' ? "bg-red-500" : p.priority === 'Alta' ? "bg-amber-500" : "bg-blue-500"
-                        )} />
-                      </td>
-                      <td className="px-6 py-3 text-slate-400">{new Date(p.entryTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
-                    </tr>
-                  ))}
-                </tbody>
-             </table>
+          <div className="flex justify-center flex-wrap gap-4 mt-3">
+            {genderData.map(d => (
+              <div key={d.name} className="flex items-center gap-1.5">
+                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: d.color }} />
+                <span className="text-[11px] font-bold text-slate-700">{d.name} ({d.value})</span>
+              </div>
+            ))}
           </div>
-       </div>
+        </div>
+
+        {/* 2. AGE GROUPS CHART */}
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+          <div>
+            <div className="flex items-center gap-2 mb-4">
+              <Activity className="h-5 w-5 text-indigo-500" />
+              <h3 className="font-black text-slate-800 text-sm uppercase tracking-tight">Faixa Etária</h3>
+            </div>
+            <p className="text-xs text-slate-400 mb-4">Grupos de idades pediátricas dominantes</p>
+          </div>
+
+          <div className="h-[180px] w-full relative flex items-center justify-center">
+            {ageGroupData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie 
+                    data={ageGroupData} 
+                    innerRadius={45} 
+                    outerRadius={65} 
+                    paddingAngle={4} 
+                    dataKey="value"
+                    labelLine={false}
+                  >
+                    {ageGroupData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(val) => [`${val} paciente(s)`, 'Quantidade']} />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <span className="text-xs text-slate-400 italic">Sem faixas etárias definidas</span>
+            )}
+          </div>
+
+          <div className="flex justify-center flex-wrap gap-3 mt-3">
+            {ageGroupData.map(d => (
+              <div key={d.name} className="flex items-center gap-1.5">
+                <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: d.color }} />
+                <span className="text-[10px] font-bold text-slate-700 truncate max-w-[90px]" title={d.name}>{d.name} ({d.value})</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* 3. TOP RESORT GEOGRAPHIC AREAS FROM LUBANGO */}
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+          <div>
+            <div className="flex items-center gap-2 mb-4">
+              <MapIcon className="h-5 w-5 text-emerald-500" />
+              <h3 className="font-black text-slate-800 text-sm uppercase tracking-tight">Geografia de Origem</h3>
+            </div>
+            <p className="text-xs text-slate-400 mb-4">Principais bairros e comunas com maior incidência</p>
+          </div>
+
+          <div className="space-y-3 flex-1 flex flex-col justify-center">
+            {cityData.map((city, idx) => {
+              const maxVal = cityData[0]?.value || 1;
+              const pct = Math.round((city.value / maxVal) * 100);
+              return (
+                <div key={city.name} className="space-y-1">
+                  <div className="flex justify-between items-center text-xs">
+                     <span className="font-bold text-slate-800">{city.name}</span>
+                     <span className="font-black text-slate-500 text-[11px]">{city.value} Pacientes</span>
+                  </div>
+                  <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                     <div className="h-full bg-blue-600 rounded-full" style={{ width: `${pct}%` }}></div>
+                  </div>
+                </div>
+              );
+            })}
+            {cityData.length === 0 && (
+              <div className="text-slate-400 text-xs italic text-center py-6">Sem estatísticas geográficas</div>
+            )}
+          </div>
+        </div>
+
+      </div>
+
+      {/* RECENT REGISTRATIONS TABLE */}
+      <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+         <div className="px-6 py-5 bg-slate-900 border-b border-slate-800 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <History className="h-5 w-5 text-blue-400 animate-pulse" />
+              <h3 className="font-black text-white text-sm uppercase tracking-wider">Histórico Recente de Entradas</h3>
+            </div>
+            <span className="text-[10px] bg-slate-800 hover:bg-slate-700 text-blue-400 p-2 rounded-xl font-bold uppercase tracking-wider transition-all">Sincronização Ativa</span>
+         </div>
+         <div className="overflow-x-auto">
+           <table className="w-full text-left">
+              <thead className="bg-slate-50 text-[10px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200">
+                <tr>
+                  <th className="px-6 py-4">Serial ID / Nome</th>
+                  <th className="px-6 py-4">Género</th>
+                  <th className="px-6 py-4">Idade</th>
+                  <th className="px-6 py-4">Sintomas / Diagnóstico</th>
+                  <th className="px-6 py-4">Prioridade</th>
+                  <th className="px-6 py-4">Saída / Estado</th>
+                  <th className="px-6 py-4">Horário Entrada</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-xs font-medium text-slate-700">
+                {patients.slice(0, 5).map(p => (
+                  <tr key={p.id} className="hover:bg-slate-50/80 transition-all">
+                    <td className="px-6 py-4">
+                      <p className="font-bold text-slate-900">{p.name}</p>
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{p.patientSerialId || 'Sem ID'}</p>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={cn(
+                        "px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider",
+                        p.gender === 'Masculino' ? "bg-blue-50 text-blue-600" : "bg-pink-50 text-pink-600"
+                      )}>
+                        {p.gender}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <p className="font-bold text-slate-800">{p.age} Anos</p>
+                      <p className="text-[9px] text-slate-400">{p.ageGroup}</p>
+                    </td>
+                    <td className="px-6 py-4">
+                      <p className="font-bold text-slate-800 truncate max-w-[160px]" title={p.occurrenceType}>{p.occurrenceType}</p>
+                      <p className="text-[10px] text-slate-400 truncate max-w-[160px]" title={p.diagnosis || p.signalsSymptoms}>{p.diagnosis || p.signalsSymptoms}</p>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={cn(
+                        "px-2 px-1 rounded text-[10px] font-bold",
+                        p.priority === 'Emergência' ? "bg-red-500 text-white" :
+                        p.priority === 'Alta' ? "bg-amber-100 text-amber-800" :
+                        p.priority === 'Média' ? "bg-blue-100 text-blue-800" : "bg-slate-100 text-slate-700"
+                      )}>
+                        {p.priority}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 font-bold">
+                      <span className={cn(
+                        "text-[10px] tracking-wider",
+                        p.state === 'Alta' ? "text-emerald-600" :
+                        p.state === 'Internado' ? "text-blue-600" :
+                        p.state === 'Óbito' ? "text-red-600" : "text-slate-600"
+                      )}>
+                        ● {p.state}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-slate-400 font-bold">{new Date(p.entryTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
+                  </tr>
+                ))}
+                {patients.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="text-center py-8 text-slate-400 italic">Nenhum paciente registado no banco de dados.</td>
+                  </tr>
+                )}
+              </tbody>
+           </table>
+         </div>
+      </div>
     </div>
   );
 }
 
-function MetricCard({ label, value, color, trend, trendColor, subtitle, isAlert, border }: any) {
+// Reusable Subcomponent for Polish and consistency
+interface MetricCardProps {
+  icon: React.ComponentType<any>;
+  label: string;
+  value: string | number;
+  subtitle?: string;
+  color?: string;
+  iconBg?: string;
+  border?: string;
+  isAlert?: boolean;
+}
+
+function MetricCard({ 
+  icon: Icon, 
+  label, 
+  value, 
+  subtitle, 
+  color, 
+  iconBg, 
+  border, 
+  isAlert 
+}: MetricCardProps) {
   return (
     <div className={cn(
-      "bg-white p-5 rounded-xl shadow-sm border",
-      border || "border-slate-200"
+      "p-6 rounded-[2rem] border shadow-sm transition-all relative overflow-hidden flex flex-col justify-between",
+      border || "border-slate-200 bg-white"
     )}>
-      <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">{label}</p>
-      <div className="flex items-baseline gap-2 mt-1">
-        <p className={cn("text-3xl font-extrabold", color)}>{value}</p>
-        {trend && <span className={cn("text-[10px] font-bold", trendColor)}>{trend}</span>}
+      {isAlert && (
+        <div className="absolute top-0 left-0 w-2 h-full bg-red-500"></div>
+      )}
+      <div className="flex items-start justify-between gap-4">
+        <div className="space-y-1">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{label}</p>
+          <p className={cn("text-4xl font-black tracking-tight", color || "text-slate-900")}>
+            {value}
+          </p>
+        </div>
+        <div className={cn("p-3.5 rounded-2xl shadow-inner", iconBg || "bg-slate-50 text-slate-600")}>
+          {Icon && <Icon className="h-6 w-6" />}
+        </div>
       </div>
-      {(subtitle || trend) && (
-        <p className="text-[10px] text-slate-400 mt-2 font-medium">{subtitle || "Comparado ao mês passado"}</p>
+      {subtitle && (
+        <p className="text-xs text-slate-400 mt-4 font-semibold tracking-tight">{subtitle}</p>
       )}
     </div>
   );

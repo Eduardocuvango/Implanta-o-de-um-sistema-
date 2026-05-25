@@ -12,6 +12,7 @@ import {
 import { db } from '../lib/firebase';
 import { Patient } from '../types';
 import { dataService } from './dataService';
+import { handleFirestoreError, OperationType } from '../lib/databaseErrors';
 
 const COLLECTION_NAME = 'patients';
 
@@ -24,19 +25,33 @@ export const patientService = {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
-    return await addDoc(collection(db, COLLECTION_NAME), data);
+    try {
+      return await addDoc(collection(db, COLLECTION_NAME), data);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, `${COLLECTION_NAME}/(new-doc)`);
+    }
   },
 
   async update(id: string, patient: Partial<Patient>) {
-    const docRef = doc(db, COLLECTION_NAME, id);
-    return await updateDoc(docRef, {
-      ...patient,
-      updatedAt: new Date().toISOString()
-    });
+    const path = `${COLLECTION_NAME}/${id}`;
+    try {
+      const docRef = doc(db, COLLECTION_NAME, id);
+      return await updateDoc(docRef, {
+        ...patient,
+        updatedAt: new Date().toISOString()
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, path);
+    }
   },
 
   async delete(id: string) {
-    return await deleteDoc(doc(db, COLLECTION_NAME, id));
+    const path = `${COLLECTION_NAME}/${id}`;
+    try {
+      return await deleteDoc(doc(db, COLLECTION_NAME, id));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, path);
+    }
   },
 
   subscribe(callback: (patients: Patient[]) => void) {
@@ -47,6 +62,9 @@ export const patientService = {
         ...doc.data()
       })) as Patient[];
       callback(patients);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, COLLECTION_NAME);
     });
   }
 };
+

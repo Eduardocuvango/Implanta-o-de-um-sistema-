@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
@@ -17,6 +17,24 @@ import { Layout } from './components/Layout';
 function AppContent() {
   const { user, profile, loading } = useAuth();
   const [view, setView] = useState<'landing' | 'login' | 'register' | 'dashboard' | 'patients' | 'profile' | 'settings'>('landing');
+
+  // Auto-redirect authenticated users
+  useEffect(() => {
+    if (!loading && user && profile) {
+      if (view === 'landing' || view === 'login' || view === 'register') {
+        setView(profile.role === 'admin' ? 'dashboard' : 'patients');
+      }
+    }
+  }, [user, profile, loading, view]);
+
+  // Redirect to landing on sign out
+  useEffect(() => {
+    if (!loading && !user) {
+      if (view !== 'landing' && view !== 'login' && view !== 'register') {
+        setView('landing');
+      }
+    }
+  }, [user, loading, view]);
 
   if (loading) {
     return (

@@ -9,6 +9,7 @@ import {
   setDoc,
   writeBatch
 } from 'firebase/firestore';
+import { handleFirestoreError, OperationType } from '../lib/databaseErrors';
 
 const COUNTERS_COLLECTION = 'counters';
 const PATIENTS_COUNTER_DOC = 'patients';
@@ -21,23 +22,29 @@ export const dataService = {
   async getNextPatientId(): Promise<string> {
     const counterRef = doc(db, COUNTERS_COLLECTION, PATIENTS_COUNTER_DOC);
     const year = new Date().getFullYear();
+    const path = `${COUNTERS_COLLECTION}/${PATIENTS_COUNTER_DOC}`;
 
-    return await runTransaction(db, async (transaction) => {
-      const counterDoc = await transaction.get(counterRef);
-      let count = 1;
+    try {
+      return await runTransaction(db, async (transaction) => {
+        const counterDoc = await transaction.get(counterRef);
+        let count = 1;
 
-      if (counterDoc.exists()) {
-        const data = counterDoc.data();
-        if (data.year === year) {
-          count = data.count + 1;
+        if (counterDoc.exists()) {
+          const data = counterDoc.data();
+          if (data.year === year) {
+            count = data.count + 1;
+          }
         }
-      }
 
-      transaction.set(counterRef, { count, year });
-      
-      const paddedCount = count.toString().padStart(4, '0');
-      return `P-${year}-${paddedCount}`;
-    });
+        transaction.set(counterRef, { count, year });
+        
+        const paddedCount = count.toString().padStart(4, '0');
+        return `P-${year}-${paddedCount}`;
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, path);
+      throw error;
+    }
   },
 
   /**
@@ -45,20 +52,26 @@ export const dataService = {
    */
   async getNextStaffId(): Promise<string> {
     const counterRef = doc(db, COUNTERS_COLLECTION, STAFF_COUNTER_DOC);
+    const path = `${COUNTERS_COLLECTION}/${STAFF_COUNTER_DOC}`;
 
-    return await runTransaction(db, async (transaction) => {
-      const counterDoc = await transaction.get(counterRef);
-      let count = 1;
+    try {
+       return await runTransaction(db, async (transaction) => {
+        const counterDoc = await transaction.get(counterRef);
+        let count = 1;
 
-      if (counterDoc.exists()) {
-        count = counterDoc.data().count + 1;
-      }
+        if (counterDoc.exists()) {
+          count = counterDoc.data().count + 1;
+        }
 
-      transaction.set(counterRef, { count });
-      
-      const paddedCount = count.toString().padStart(3, '0');
-      return `STF-${paddedCount}`;
-    });
+        transaction.set(counterRef, { count });
+        
+        const paddedCount = count.toString().padStart(3, '0');
+        return `STF-${paddedCount}`;
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, path);
+      throw error;
+    }
   },
 
   /**
@@ -69,11 +82,15 @@ export const dataService = {
     const backup: Record<string, any[]> = {};
 
     for (const colName of collections) {
-      const snapshot = await getDocs(collection(db, colName));
-      backup[colName] = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
+      try {
+        const snapshot = await getDocs(collection(db, colName));
+        backup[colName] = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+      } catch (error) {
+        handleFirestoreError(error, OperationType.LIST, colName);
+      }
     }
 
     return backup;
@@ -83,17 +100,21 @@ export const dataService = {
    * Restores a backup
    */
   async restoreBackup(backup: Record<string, any[]>) {
-    for (const colName in backup) {
-      const items = backup[colName];
-      const batch = writeBatch(db);
-      
-      for (const item of items) {
-        const { id, ...data } = item;
-        const docRef = doc(db, colName, id);
-        batch.set(docRef, data);
+    try {
+      for (const colName in backup) {
+        const items = backup[colName];
+        const batch = writeBatch(db);
+        
+        for (const item of items) {
+          const { id, ...data } = item;
+          const docRef = doc(db, colName, id);
+          batch.set(docRef, data);
+        }
+        
+        await batch.commit();
       }
-      
-      await batch.commit();
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, 'batch-restore');
     }
   },
 
@@ -113,21 +134,25 @@ export const dataService = {
 
     if (isDue) {
       console.log('🔄 Iniciando Cópia de Segurança Automática...');
-      const backupData = await this.createBackup();
-      const backupId = `auto_${now.toISOString().split('T')[0]}`;
-      
-      await setDoc(doc(db, 'backups', backupId), {
-        data: backupData,
-        type: 'automatic',
-        frequency: settings.backupFrequency,
-        createdAt: now.toISOString()
-      });
+      try {
+        const backupData = await this.createBackup();
+        const backupId = `auto_${now.toISOString().split('T')[0]}`;
+        
+        await setDoc(doc(db, 'backups', backupId), {
+          data: backupData,
+          type: 'automatic',
+          frequency: settings.backupFrequency,
+          createdAt: now.toISOString()
+        });
 
-      await setDoc(doc(db, 'settings', 'config'), {
-        lastBackupDate: now.toISOString()
-      }, { merge: true });
-      
-      console.log('✅ Backup Automático Concluído e Armazenado no Firestore.');
+        await setDoc(doc(db, 'settings', 'config'), {
+          lastBackupDate: now.toISOString()
+        }, { merge: true });
+        
+        console.log('✅ Backup Automático Concluído e Armazenado no Firestore.');
+      } catch (error) {
+        handleFirestoreError(error, OperationType.WRITE, 'backups');
+      }
     }
   },
 
@@ -135,7 +160,13 @@ export const dataService = {
    * Gets list of available snapshots
    */
   async getBackups() {
-    const snap = await getDocs(collection(db, 'backups'));
-    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    try {
+      const snap = await getDocs(collection(db, 'backups'));
+      return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.LIST, 'backups');
+      return [];
+    }
   }
 };
+

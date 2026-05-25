@@ -2,5 +2,5 @@
   "name": "Pioneiro Zeca - Sistema de Emergência",
   "description": "Sistema profissional de recolha de dados e dashboard analítico para o Hospital Pediátrico do Lubango 'Pioneiro Zeca'. Inclui triagem, monitorização em tempo real e analytics avançado.",
   "requestFramePermissions": [],
-  "majorCapabilities": []
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

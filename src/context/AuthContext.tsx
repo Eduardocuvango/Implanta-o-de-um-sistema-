@@ -19,11 +19,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     return onAuthStateChanged(auth, async (user) => {
-      setUser(user);
       if (user) {
+        setLoading(true); // Ensure loading is true while fetching NEW profile
+        setUser(user);
         const p = await userService.getProfile(user.uid);
         setProfile(p);
       } else {
+        setUser(null);
         setProfile(null);
       }
       setLoading(false);

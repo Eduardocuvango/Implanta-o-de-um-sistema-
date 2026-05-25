@@ -22,7 +22,9 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return isSignedIn() && getUserData().role == 'admin';
+      return isSignedIn() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
     function isOwner(userId) {
@@ -53,12 +55,11 @@ service cloud.firestore {
           && (data.name == null || (data.name is string && data.name.size() < 100));
       }
 
-      allow create: if isEmailVerified() && isOwner(userId) && isValidUser(incoming()) 
-                     && incoming().role == 'staff'; // Default to staff on self-create
+      allow create: if isSignedIn() && isOwner(userId) && isValidUser(incoming());
       
       allow update: if isSignedIn() && isOwner(userId) && isValidUser(incoming())
-                     && incoming().role == existing().role // Can't change own role
-                     && (incoming().diff(existing()).affectedKeys().hasOnly(['name', 'signature']));
+                     && (isAdmin() || incoming().role == existing().role)
+                     && (incoming().diff(existing()).affectedKeys().hasOnly(['name', 'signature', 'updatedAt']));
       
       allow write: if isAdmin(); // Admin can manage all
     }
@@ -75,7 +76,7 @@ service cloud.firestore {
           && (data.occurrenceType == null || (data.occurrenceType is string && data.occurrenceType.size() < 500));
       }
 
-      allow create: if isEmailVerified() && isValidPatient(incoming());
+      allow create: if isSignedIn() && isValidPatient(incoming());
       
       allow update: if isSignedIn() && (
         isAdmin() || 
@@ -97,6 +98,11 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // Counters for sequential IDs
+    match /counters/{counterId} {
+      allow read, write: if isSignedIn();
+    }
+
     // Authorization Whitelist
     match /authorized_users/{email} {
       // Any signed in user can check their own authorization during login
@@ -104,6 +110,11 @@ service cloud.firestore {
       allow get: if isSignedIn(); 
       allow list: if isAdmin();
       allow write: if isAdmin();
+    }
+
+    // Backups
+    match /backups/{backupId} {
+      allow read, write: if isAdmin();
     }
   }
 }
