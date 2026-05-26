@@ -61,6 +61,7 @@ service cloud.firestore {
                      && (isAdmin() || incoming().role == existing().role)
                      && (incoming().diff(existing()).affectedKeys().hasOnly(['name', 'signature', 'updatedAt']));
       
+      allow delete: if isAdmin();
       allow write: if isAdmin(); // Admin can manage all
     }
 

@@ -55,12 +55,20 @@ export const patientService = {
   },
 
   subscribe(callback: (patients: Patient[]) => void) {
-    const q = query(collection(db, COLLECTION_NAME), orderBy('updatedAt', 'desc'));
+    const q = query(collection(db, COLLECTION_NAME));
     return onSnapshot(q, (snapshot) => {
       const patients = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       })) as Patient[];
+      
+      // Sort in memory by updatedAt (descending) with robust fallback
+      patients.sort((a, b) => {
+        const timeA = new Date(a.updatedAt || a.createdAt || 0).getTime();
+        const timeB = new Date(b.updatedAt || b.createdAt || 0).getTime();
+        return timeB - timeA;
+      });
+      
       callback(patients);
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, COLLECTION_NAME);

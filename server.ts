@@ -17,6 +17,60 @@ async function startServer() {
     res.json({ status: "ok" });
   });
 
+  // Helper function to call Gemini with retries and model fallbacks
+  async function generateContentWithRetry(
+    apiKey: string,
+    params: {
+      model?: string;
+      contents: any;
+      config?: any;
+    },
+    maxRetries = 2
+  ) {
+    const modelsToTry = [
+      params.model || "gemini-3.5-flash",
+      "gemini-3.1-flash-lite"
+    ];
+
+    const ai = new GoogleGenAI({ 
+      apiKey,
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build'
+        }
+      }
+    });
+
+    let lastError: any = null;
+
+    for (const model of modelsToTry) {
+      let delay = 1000;
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          const response = await ai.models.generateContent({
+            ...params,
+            model
+          });
+          return response;
+        } catch (err: any) {
+          lastError = err;
+          console.warn(`[Gemini Retry Handler] Model ${model}, Attempt ${attempt}/${maxRetries} failed:`, err.message || err);
+          
+          // If it's a validation error or similar 400 bad request, retry won't help
+          if (err.status === 400 || (err.message && err.message.includes("400"))) {
+            break;
+          }
+          
+          if (attempt < maxRetries) {
+            await new Promise((resolve) => setTimeout(resolve, delay));
+            delay *= 2;
+          }
+        }
+      }
+    }
+    throw lastError || new Error("Não foi possível obter resposta do motor inteligente de IA.");
+  }
+
   // 1. Diagnosis Suggestion Endpoint
   app.post("/api/clinical-support", async (req, res) => {
     const { symptoms } = req.body;
@@ -33,8 +87,7 @@ async function startServer() {
         });
       }
 
-      const ai = new GoogleGenAI({ apiKey });
-      const response = await ai.models.generateContent({
+      const response = await generateContentWithRetry(apiKey, {
         model: "gemini-3.5-flash",
         contents: `Analise estes sinais e sintomas pediátricos e sugira possíveis diagnósticos e nível de urgência: "${symptoms}"`,
         config: {
@@ -79,8 +132,7 @@ async function startServer() {
         });
       }
 
-      const ai = new GoogleGenAI({ apiKey });
-      const response = await ai.models.generateContent({
+      const response = await generateContentWithRetry(apiKey, {
         model: 'gemini-3.5-flash',
         contents: `${prompt}\n\nSumário dos dados atuais de atendimento e estatística hospitalar do Lubango:\n${dataSummary}`
       });

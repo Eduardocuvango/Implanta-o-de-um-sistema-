@@ -10,10 +10,11 @@ import {
 import { 
   Activity, Users, Clock, AlertTriangle, TrendingUp, 
   Map as MapIcon, BrainCircuit, Lightbulb, Info, Loader2, Sparkles,
-  UserCheck, Baby, HeartPulse, History
+  UserCheck, Baby, HeartPulse, History, Printer, Download
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { cn } from '../lib/utils';
+import * as XLSX from 'xlsx';
 
 export default function DashboardPage() {
   const { profile } = useAuth();
@@ -147,6 +148,77 @@ export default function DashboardPage() {
   // Calculate percentage of treatment completions
   const rateCompletion = stats.total > 0 ? Math.round((stats.attended / stats.total) * 100) : 0;
 
+  const handleDownloadReport = () => {
+    // 1. Informações/Métricas Gerais
+    const generalData = [
+      { "Indicador": "Total de Pacientes Registados", "Valor": stats.total },
+      { "Indicador": "Pacientes Atendidos", "Valor": stats.attended },
+      { "Indicador": "Pacientes Em Espera", "Valor": stats.waiting },
+      { "Indicador": "Casos de Emergência/Críticos", "Valor": stats.critical },
+      { "Indicador": "Taxa de Sucesso Clínico", "Valor": `${rateCompletion}%` },
+      { "Indicador": "Género Masculino", "Valor": maleCount },
+      { "Indicador": "Género Feminino", "Valor": femaleCount },
+      { "Indicador": "Casos de Alta Médica", "Valor": stats.outcomes.alta },
+      { "Indicador": "Casos de Internamento", "Valor": stats.outcomes.internados },
+      { "Indicador": "Casos Transferidos", "Valor": stats.outcomes.transferidos },
+      { "Indicador": "Casos de Óbito", "Valor": stats.outcomes.obitos },
+    ];
+
+    // 2. Distribuição por Cidade/Município
+    const municipalSheetData = cityData.map(c => ({
+      "Município/Cidade": c.name,
+      "Número de Ocorrências": c.value,
+      "Percentagem": `${stats.total > 0 ? Math.round((c.value / stats.total) * 100) : 0}%`
+    }));
+
+    // 3. Sintomas Frequentes
+    const symptomsSheetData = Object.entries(symptomDataMap).map(([name, value]) => ({
+      "Sintoma/Ocorrência": name,
+      "Quantidade": Number(value),
+      "Percentagem": `${stats.total > 0 ? Math.round((Number(value) / stats.total) * 100) : 0}%`
+    })).sort((a, b) => b["Quantidade"] - a["Quantidade"]);
+
+    // 4. Lista Completa de Pacientes
+    const patientsSheetData = patients.map(p => ({
+      "ID": p.id || p.patientId || "",
+      "Nome": p.name || "",
+      "Idade": p.age || 0,
+      "Grupo Etário": p.ageGroup || "",
+      "Género": p.gender || "",
+      "Nome da Mãe": p.motherName || "",
+      "Província": p.province || "",
+      "Município": p.city || "",
+      "Bairro": p.neighborhood || "",
+      "Contacto": p.phone || "",
+      "Sintomas/Ocorrência": p.occurrenceType || "",
+      "Prioridade": p.priority || "",
+      "Estado": p.state || "",
+      "Status": p.status || "",
+      "Data de Registo": p.createdAt ? new Date(p.createdAt).toLocaleDateString("pt-AO") : "",
+      "Última Atualização": p.updatedAt ? new Date(p.updatedAt).toLocaleDateString("pt-AO") : "",
+    }));
+
+    // Generate Excel file
+    const wb = XLSX.utils.book_new();
+
+    const wsGeneral = XLSX.utils.json_to_sheet(generalData);
+    const wsMunicipal = XLSX.utils.json_to_sheet(municipalSheetData);
+    const wsSymptoms = XLSX.utils.json_to_sheet(symptomsSheetData);
+    const wsPatientsList = XLSX.utils.json_to_sheet(patientsSheetData);
+
+    // Append sheets to workbook
+    XLSX.utils.book_append_sheet(wb, wsGeneral, "Metricas Gerais");
+    XLSX.utils.book_append_sheet(wb, wsMunicipal, "Distribuicao Geografica");
+    XLSX.utils.book_append_sheet(wb, wsSymptoms, "Sintomas e Ocorrencias");
+    XLSX.utils.book_append_sheet(wb, wsPatientsList, "Lista de Pacientes");
+
+    // Save/write the workbook
+    XLSX.writeFile(
+      wb,
+      `Relatorio_Dashboard_PioneiroZeca_${new Date().toLocaleDateString("pt-AO").replace(/\//g, "-")}.xlsx`
+    );
+  };
+
   return (
     <div className="space-y-8 max-w-7xl mx-auto pb-20 px-4 sm:px-6">
       <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 bg-slate-900 text-white p-6 sm:p-8 rounded-[2rem] shadow-xl relative overflow-hidden">
@@ -167,14 +239,32 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
-        <div className="relative z-10 flex items-center gap-3">
+        <div className="relative z-10 flex flex-wrap items-center gap-3">
           <button 
             onClick={generateAiInsights}
             disabled={loadingAi || patients.length === 0}
-            className="group flex items-center gap-3 px-6 py-3.5 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl text-xs font-black shadow-lg shadow-blue-600/30 transition-all disabled:opacity-50 active:scale-95 uppercase tracking-wider"
+            className="group flex items-center gap-3 px-6 py-3.5 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl text-xs font-black shadow-lg shadow-blue-600/30 transition-all disabled:opacity-50 active:scale-95 uppercase tracking-wider print:hidden"
           >
             {loadingAi ? <Loader2 className="h-4 w-4 animate-spin" /> : <BrainCircuit className="h-5 w-5 text-blue-200 group-hover:rotate-12 transition-transform" />}
             {loadingAi ? 'A Sincronizar IA...' : 'GERAR INSIGHTS CO-PILOT'}
+          </button>
+          
+          <button 
+            onClick={handleDownloadReport}
+            disabled={patients.length === 0}
+            className="flex items-center gap-2.5 px-6 py-3.5 bg-emerald-600 hover:bg-emerald-500 hover:text-white border border-emerald-500 text-white rounded-2xl text-xs font-black shadow-lg transition-all active:scale-95 uppercase tracking-wider print:hidden disabled:opacity-50"
+          >
+            <Download className="h-5 w-5 text-emerald-100" />
+            Baixar Relatório (.xlsx)
+          </button>
+
+          <button 
+            onClick={() => window.print()}
+            disabled={patients.length === 0}
+            className="flex items-center gap-2.5 px-6 py-3.5 bg-slate-800 hover:bg-slate-700 hover:text-white border border-slate-700 text-white rounded-2xl text-xs font-black shadow-lg transition-all active:scale-95 uppercase tracking-wider print:hidden disabled:opacity-50"
+          >
+            <Printer className="h-5 w-5 text-slate-300" />
+            Imprimir Relatório
           </button>
         </div>
       </header>

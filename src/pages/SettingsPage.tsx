@@ -217,11 +217,15 @@ export default function SettingsPage() {
     const label = isLocalStaff ? email.split("@")[0] : email;
     if (
       window.confirm(
-        `Tem a certeza que deseja remover a autorização de ${label}?`,
+        `Tem a certeza que deseja remover a autorização e apagar permanentemente a conta de ${label}?`,
       )
     ) {
       try {
         await adminService.deauthorizeUser(email);
+        const matchingProfile = userProfiles.find(p => p.email.toLowerCase() === email.toLowerCase());
+        if (matchingProfile) {
+          await userService.deleteProfile(matchingProfile.uid);
+        }
         loadData();
       } catch (err) {
         console.error(err);
@@ -235,11 +239,14 @@ export default function SettingsPage() {
     const label = isLocalStaff ? profileEmail.split("@")[0] : profileEmail;
     const confirmMessage = isSelf
       ? "ATENÇÃO CRÍTICA: Está prestes a APAGAR a sua própria conta de administrador! Será desconectado do sistema imediatamente. Deseja prosseguir?"
-      : `Tem a certeza que deseja apagar permanentemente a conta de utilizador ${label}?`;
+      : `Tem a certeza que deseja apagar permanentemente a conta de utilizador ${label} e revogar a sua autorização?`;
 
     if (window.confirm(confirmMessage)) {
       try {
         await userService.deleteProfile(uid);
+        if (profileEmail) {
+          await adminService.deauthorizeUser(profileEmail);
+        }
         if (isSelf) {
           await signOut(firebaseAuth);
         } else {

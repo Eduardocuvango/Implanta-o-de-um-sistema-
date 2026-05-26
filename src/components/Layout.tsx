@@ -33,7 +33,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentView, onNavigat
     { id: 'dashboard', label: 'Dashboard Resumo (IA)', icon: Home, show: profile?.role === 'admin' },
     { id: 'patients', label: 'Recolha de Dados', icon: TableIcon, show: !!user },
     { id: 'settings', label: 'Admin / Alertas', icon: Settings, show: profile?.role === 'admin' },
-    { id: 'profile', label: 'Perfil / Config', icon: User, show: !!user },
+    { id: 'profile', label: 'Perfil / Config', icon: User, show: profile?.role === 'admin' },
   ].filter(item => item.show);
 
   const handleNavigate = (id: any) => {
@@ -42,10 +42,10 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentView, onNavigat
   };
 
   return (
-    <div className="flex h-screen bg-slate-50 font-sans text-slate-800 overflow-hidden">
+    <div className="flex h-screen bg-slate-50 font-sans text-slate-800 overflow-hidden print:h-auto print:overflow-visible print:bg-white">
       {/* Sidebar */}
       {user && !['landing', 'login', 'register'].includes(currentView) && (
-        <aside className="w-64 bg-[#0f172a] text-white flex flex-col hidden md:flex shrink-0">
+        <aside className="w-64 bg-[#0f172a] text-white flex flex-col hidden md:flex shrink-0 print:hidden">
           <div className="p-6 border-b border-slate-700">
             <h1 className="text-xl font-bold tracking-tight text-blue-400">PIONEIRO ZECA</h1>
             <p className="text-[10px] text-slate-400 uppercase tracking-widest mt-1 font-semibold">Hospital Pediátrico</p>
@@ -93,10 +93,10 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentView, onNavigat
       )}
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col overflow-hidden">
+      <main className="flex-1 flex flex-col overflow-hidden print:h-auto print:overflow-visible">
         {/* Header Bar */}
         {user && !['landing', 'login', 'register'].includes(currentView) && (
-          <header className="h-16 bg-white border-b flex items-center justify-between px-8 shadow-sm shrink-0">
+          <header className="h-16 bg-white border-b flex items-center justify-between px-8 shadow-sm shrink-0 print:hidden">
             <div className="flex items-center gap-4">
                <button onClick={() => setMenuOpen(true)} className="md:hidden">
                 <LayoutDashboard className="h-6 w-6 text-slate-600" />
@@ -117,9 +117,9 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentView, onNavigat
 
         {/* Mobile Menu Overlay */}
         {menuOpen && (
-          <div className="fixed inset-0 z-50 bg-slate-900 p-6 md:hidden text-white">
+          <div className="fixed inset-0 z-50 bg-slate-900 p-6 md:hidden text-white print:hidden">
             <div className="flex items-center justify-between mb-8 border-b border-slate-700 pb-4">
-               <h1 className="text-xl font-bold tracking-tight text-blue-400">PIONEIRO ZECA</h1>
+               <h1 className="text-xl font-bold tracking-tight text-blue-450">PIONEIRO ZECA</h1>
                <button onClick={() => setMenuOpen(false)}><X className="h-6 w-6" /></button>
             </div>
             <nav className="space-y-4">
@@ -146,11 +146,11 @@ export const Layout: React.FC<LayoutProps> = ({ children, currentView, onNavigat
         )}
         
         <div className={cn(
-          "flex-1 overflow-auto",
+          "flex-1 overflow-auto print:overflow-visible print:p-0",
           ['landing', 'login', 'register'].includes(currentView) ? "" : "p-8"
         )}>
           <div className={cn(
-            "max-w-7xl mx-auto h-full",
+            "max-w-7xl mx-auto h-full print:max-w-none print:w-full",
             ['landing', 'login', 'register'].includes(currentView) ? "" : "flex flex-col gap-6"
           )}>
             {children}

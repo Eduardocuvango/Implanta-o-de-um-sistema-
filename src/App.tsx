@@ -53,7 +53,7 @@ function AppContent() {
 
     // Role-based restrictions
     if (profile?.role === 'staff') {
-      if (newView === 'dashboard' || newView === 'settings') {
+      if (newView === 'dashboard' || newView === 'settings' || newView === 'profile') {
         setView('patients');
         return;
       }

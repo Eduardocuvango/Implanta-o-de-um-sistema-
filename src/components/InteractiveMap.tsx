@@ -149,10 +149,9 @@ export default function InteractiveMap({ patients }: InteractiveMapProps) {
   };
 
   return (
-    <div className="bg-white rounded-[2rem] border border-slate-200 shadow-xl overflow-hidden grid grid-cols-1 lg:grid-cols-12">
+    <div className="bg-white rounded-[2rem] border border-slate-200 shadow-xl overflow-hidden grid grid-cols-1 lg:grid-cols-12 print:border-none print:shadow-none">
       {/* 1. MAP VISUALIZATION CANVAS (8 COLUMNS) */}
-      <div className="lg:col-span-8 p-6 sm:p-8 flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-slate-100 select-none bg-slate-950 text-white relative">
-        <div className="absolute inset-0 bg-radial-at-t from-slate-900 via-slate-950 to-slate-950 opacity-100 z-0"></div>
+      <div className="lg:col-span-8 p-6 sm:p-8 flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-slate-100 select-none bg-slate-1000 text-slate-100 relative bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-slate-950 to-slate-950">
         
         {/* Top bar controls */}
         <div className="relative z-10 flex flex-wrap items-center justify-between gap-4">
@@ -161,8 +160,11 @@ export default function InteractiveMap({ patients }: InteractiveMapProps) {
               <MapIcon className="h-5 w-5 text-blue-400" />
             </div>
             <div>
-              <h3 className="text-sm font-black uppercase tracking-wider text-slate-100">Mapa Geográfico de Risco</h3>
-              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Indicadores em tempo real para tomada de decisões</p>
+              <h3 className="text-sm font-black uppercase tracking-wider text-slate-100 flex items-center gap-2">
+                Mapa Geográfico de Risco Humano e Epidemiológico
+                <span className="text-[8px] bg-blue-500/70 text-white px-1.5 py-0.5 rounded uppercase font-black tracking-widest">Estilo GIS</span>
+              </h3>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Vias, hidrografia, topografia, postos vitais e zonas de risco</p>
             </div>
           </div>
           
@@ -183,18 +185,67 @@ export default function InteractiveMap({ patients }: InteractiveMapProps) {
           </div>
         </div>
 
-        {/* Master SVG Map Screen */}
-        <div className="relative z-10 flex-1 h-[340px] w-full flex items-center justify-center mt-6">
-          <svg viewBox="0 0 400 320" className="w-full h-full max-h-[340px]">
-            {/* Background grids styling with futuristic overlay */}
+        {/* Master SVG Map Screen with rich vector topographic & street detailing */}
+        <div className="relative z-10 flex-1 h-[360px] w-full flex items-center justify-center mt-6">
+          <svg viewBox="0 0 400 320" className="w-full h-full max-h-[360px]">
             <defs>
               <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
-                <path d="M 20 0 L 0 0 0 20" fill="none" stroke="rgba(51, 65, 85, 0.15)" strokeWidth="0.5" />
+                <path d="M 20 0 L 0 0 0 20" fill="none" stroke="rgba(51, 65, 85, 0.22)" strokeWidth="0.5" />
               </pattern>
+              
+              {/* Compass symbol definition */}
+              <g id="compass-rose">
+                <circle cx="0" cy="0" r="14" fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="1" />
+                <path d="M0,-16 L3,-4 L12,0 L3,4 L0,16 L-3,4 L-12,0 L-3,-4 Z" fill="rgba(255, 255, 255, 0.3)" />
+                <path d="M0,-16 L0,0 L12,0 L0,0 L0,16 L0,0 L-12,0 Z" stroke="rgba(255,255,255,0.4)" strokeWidth="1" />
+                <text x="-3" y="-18" fill="white" className="text-[7px] font-black">N</text>
+              </g>
             </defs>
             <rect width="100%" height="100%" fill="url(#grid)" rx="16" />
 
-            {/* Render geographic borders / colored regions */}
+            {/* LATITUDE / LONGITUDE TICK MARKERS */}
+            <g className="text-[6px] fill-slate-500 font-mono select-none" opacity="0.75">
+              <text x="4" y="15">14°50'S</text>
+              <text x="4" y="100">14°55'S</text>
+              <text x="4" y="200">15°00'S</text>
+              <text x="4" y="300">15°05'S</text>
+              <text x="100" y="315" textAnchor="middle">13°25'E</text>
+              <text x="200" y="315" textAnchor="middle">13°30'E</text>
+              <text x="300" y="315" textAnchor="middle">13°35'E</text>
+            </g>
+
+            {/* HIGH-FIDELITY TOPOGRAPHIC AND MOUNTAIN CONTOURS (Serra da Chela & Humpata Plateau) */}
+            <g opacity="0.12" fill="none" stroke="white" strokeWidth="0.75" strokeDasharray="3,3" className="pointer-events-none">
+              <path d="M-10,50 C30,70 50,130 20,220 C10,240 5,270 -10,300" />
+              <text x="12" y="150" fill="gray" className="text-[5px] font-mono select-none">1800m</text>
+              <path d="M-20,70 C15,90 30,140 10,210 C1,225 -2,250 -20,280" />
+              <text x="2" y="215" fill="gray" className="text-[5px] font-mono select-none">2100m</text>
+              <path d="M380,10 C340,30 350,90 390,140" />
+              <path d="M390,150 C360,180 370,220 395,260" />
+            </g>
+
+            {/* HIDROGRAFIA: PRINCIPAL RIVER SYMBOLS (E.g. Rio Mucufi curving beautifully through region) */}
+            <g opacity="0.35" fill="none" className="pointer-events-none">
+              <path d="M-10,130 Q120,150 170,140 T270,120 T410,100" stroke="#38bdf8" strokeWidth="3" />
+              <path d="M120,40 Q150,90 170,140" stroke="#38bdf8" strokeWidth="1.5" />
+              <path d="M190,280 Q210,210 170,140" stroke="#38bdf8" strokeWidth="1.5" />
+              <text x="290" y="112" fill="#7dd3fc" className="text-[6px] font-extrabold italic select-none">Rio Mucufi</text>
+            </g>
+
+            {/* PRINCIPAL VEICULAR HIGHWAYS (EN-105 & EN-280 primary transit lanes) */}
+            <g opacity="0.22" fill="none" className="pointer-events-none">
+              {/* EN-280 Road (West to East) */}
+              <path d="M-20,165 Q110,160 210,165 T420,175" stroke="#f59e0b" strokeWidth="5" />
+              <path d="M-20,165 Q110,160 210,165 T420,175" stroke="#1e293b" strokeWidth="1" />
+              <text x="325" y="166" fill="#f59e0b" className="text-[5px] font-black bg-slate-950 select-none">EN-280</text>
+              
+              {/* EN-105 Road (North to South) */}
+              <path d="M165,-20 Q160,120 165,210 T170,340" stroke="#f59e0b" strokeWidth="4.5" />
+              <path d="M165,-20 Q160,120 165,210 T170,340" stroke="#1e293b" strokeWidth="0.8" />
+              <text x="174" y="45" fill="#f59e0b" className="text-[5px] font-black bg-slate-950 select-none">EN-105</text>
+            </g>
+
+            {/* REGIONAL GEOGRAPHIC POLYGONS AND RISK ZONES */}
             <g className="transition-all duration-500">
               {regionData.map((reg) => (
                 <polygon
@@ -203,7 +254,7 @@ export default function InteractiveMap({ patients }: InteractiveMapProps) {
                   onClick={() => setSelectedRegion(reg.name)}
                   onMouseEnter={() => setHoveredRegion(reg.name)}
                   onMouseLeave={() => setHoveredRegion(null)}
-                  className={`transition-all duration-300 cursor-pointer stroke-2 ${getRegionFillColor(
+                  className={`transition-all duration-300 cursor-pointer stroke-[1.5] ${getRegionFillColor(
                     reg.stats.total,
                     hoveredRegion === reg.name,
                     selectedRegion === reg.name
@@ -212,12 +263,42 @@ export default function InteractiveMap({ patients }: InteractiveMapProps) {
               ))}
             </g>
 
-            {/* Glowing active indicator markers/pulsing hotspots */}
+            {/* KEY POINTS OF INTEREST/LANDMARKS TRACED (Google Maps Style) */}
+            <g className="pointer-events-none select-none" opacity="0.8">
+              {/* Mukanka International Airport (near Lubango boundary) */}
+              <g transform="translate(145, 115)">
+                {/* Airport runway symbol */}
+                <line x1="-12" y1="-3" x2="12" y2="3" stroke="#94a3b8" strokeWidth="3" />
+                <line x1="-12" y1="-3" x2="12" y2="3" stroke="#ffffff" strokeWidth="0.7" strokeDasharray="3,1" />
+                <text x="14" y="2" fill="#cbd5e1" className="text-[6px] font-black uppercase tracking-wider">✈️ Aeroporto Mukanka</text>
+              </g>
+
+              {/* Hospital Central & Pediatrico Landmark locator */}
+              <g transform="translate(200, 165)">
+                <rect x="-5" y="-5" width="10" height="10" rx="2.5" fill="#ef4444" stroke="#ffffff" strokeWidth="0.75" />
+                <path d="M-3,0 L3,0 M0,-3 L0,3" stroke="#ffffff" strokeWidth="1" />
+                <text x="7" y="2" fill="#f87171" className="text-[6px] font-black uppercase tracking-wider">🏥 Hosp. Geral Central</text>
+              </g>
+
+              {/* Estátua do Cristo Rei (Famous Landmark) */}
+              <g transform="translate(230, 75)" opacity="0.85">
+                <circle cx="0" cy="0" r="2.5" fill="#ffffff" />
+                <text x="5" y="2" fill="#cbd5e1" className="text-[6px] font-bold italic">🗿 Cristo Rei</text>
+              </g>
+
+              {/* Fenda da Tundavala (Famous mountain cliff) */}
+              <g transform="translate(45, 140)" opacity="0.85">
+                <path d="M-5,-3 L0,3 L5,-3" fill="none" stroke="#f43f5e" strokeWidth="1" />
+                <text x="8" y="1" fill="#fda4af" className="text-[6px] font-extrabold uppercase tracking-widest">⛰️ Fenda da Tundavala</text>
+              </g>
+            </g>
+
+            {/* GLOWING HOTSPOT INCIDENCE INTENSITY PINPOINT MARKERS */}
             {regionData.map((reg) => {
               const casesCount = reg.stats.total;
               if (casesCount === 0) return null;
 
-              // Radius size based on proportion
+              // Pin Size
               const radiusSize = Math.max(3, Math.min(10, 3 + (casesCount / maxCases) * 7));
 
               return (
@@ -226,8 +307,8 @@ export default function InteractiveMap({ patients }: InteractiveMapProps) {
                   <motion.circle
                     cx={reg.x}
                     cy={reg.y}
-                    r={radiusSize * 2.5}
-                    className={`${casesCount > 8 ? 'fill-red-500/20' : casesCount > 3 ? 'fill-amber-500/25' : 'fill-blue-500/25'}`}
+                    r={radiusSize * 2.8}
+                    className={`${casesCount > 8 ? 'fill-red-500/25' : casesCount > 3 ? 'fill-amber-500/25' : 'fill-blue-500/25'}`}
                     animate={{
                       scale: [1, 1.4, 1],
                       opacity: [0.3, 0.7, 0.3],
@@ -244,11 +325,11 @@ export default function InteractiveMap({ patients }: InteractiveMapProps) {
                     cy={reg.y}
                     r={radiusSize}
                     className={`stroke-white stroke-[1.5] ${
-                      casesCount > 8 ? 'fill-red-500 shadow-lg shadow-red-500/50' :
-                      casesCount > 3 ? 'fill-amber-500 shadow-lg shadow-amber-500/50' : 'fill-blue-500'
+                      casesCount > 8 ? 'fill-red-500 shadow-lg' :
+                      casesCount > 3 ? 'fill-amber-500 shadow-lg' : 'fill-blue-500'
                     }`}
                   />
-                  {/* Floating badge for high hotspot count */}
+                  {/* Precise counter badge floating on focus */}
                   {hoveredRegion === reg.name && (
                     <g transform={`translate(${reg.x}, ${reg.y - 15})`}>
                       <rect x="-15" y="-12" width="30" height="15" rx="4" fill="black" stroke="white" strokeWidth="0.5" />
@@ -259,7 +340,7 @@ export default function InteractiveMap({ patients }: InteractiveMapProps) {
               );
             })}
 
-            {/* Map labels */}
+            {/* TEXT LABELS OVERLAY */}
             {regionData.map((reg) => {
               const isSelected = selectedRegion === reg.name;
               const hasCases = reg.stats.total > 0;
@@ -272,13 +353,26 @@ export default function InteractiveMap({ patients }: InteractiveMapProps) {
                   onClick={() => setSelectedRegion(reg.name)}
                   className={`text-[9px] font-bold select-none cursor-pointer tracking-wide transition-all ${
                     isSelected ? 'fill-blue-400 font-extrabold text-[10px]' : 
-                    hasCases ? 'fill-slate-100 font-semibold' : 'fill-slate-500 font-medium'
+                    hasCases ? 'fill-slate-100 font-semibold text-stroke shadow-black' : 'fill-slate-400 font-medium'
                   }`}
+                  style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.9)' }}
                 >
                   {reg.name}
                 </text>
               );
             })}
+
+            {/* STATIC COMPASS ROSE IN THE TOP-RIGHT CORNER */}
+            <use href="#compass-rose" x="375" y="30" />
+
+            {/* GRAPHIC SCALE MEASURE GAUGE BAR IN LOWER-LEFT CORNER */}
+            <g transform="translate(15, 298)" className="pointer-events-none select-none opacity-85">
+              <line x1="0" y1="0" x2="40" y2="0" stroke="white" strokeWidth="1.5" />
+              <line x1="0" y1="-3" x2="0" y2="3" stroke="white" strokeWidth="1.5" />
+              <line x1="20" y1="-2" x2="20" y2="2" stroke="white" strokeWidth="1" />
+              <line x1="40" y1="-3" x2="40" y2="3" stroke="white" strokeWidth="1.5" />
+              <text x="20" y="-5" textAnchor="middle" fill="white" className="text-[6px] font-mono leading-none">0 — 15 km</text>
+            </g>
           </svg>
         </div>
 
@@ -303,7 +397,7 @@ export default function InteractiveMap({ patients }: InteractiveMapProps) {
       </div>
 
       {/* 2. TARGETED STATS & ACTIONABLE RECOMMENDATIONS BLOCK (4 COLUMNS) */}
-      <div className="lg:col-span-4 p-8 bg-slate-50 flex flex-col justify-between">
+      <div className="lg:col-span-4 p-8 bg-slate-50 flex flex-col justify-between print:bg-white">
         <AnimatePresence mode="wait">
           {selectedInfo ? (
             <motion.div
@@ -367,26 +461,11 @@ export default function InteractiveMap({ patients }: InteractiveMapProps) {
                 </div>
               </div>
 
-              {/* Patient mini logs for selected area */}
+              {/* Action notice */}
               <div className="mt-4 pt-4 border-t border-slate-200">
-                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1">
-                  <Sparkles className="h-3.5 w-3.5 text-yellow-500" /> Casos Recentes da Zona
-                </h4>
-                <div className="max-h-[110px] overflow-y-auto space-y-1.5 pr-1">
-                  {selectedStats && selectedStats.list.length > 0 ? (
-                    selectedStats.list.map(p => (
-                      <div key={p.id} className="flex items-center justify-between text-xs p-2.5 bg-white border border-slate-200 rounded-xl hover:bg-slate-100/50 transition-all font-semibold">
-                        <span className="text-slate-800 font-bold truncate max-w-[120px]" title={p.name}>{p.name}</span>
-                        <div className="flex items-center gap-2">
-                          <span className="text-[9px] text-slate-400">{p.age} Anos</span>
-                          <span className={`w-2 h-2 rounded-full ${p.priority === 'Emergência' ? 'bg-red-500 animate-pulse' : 'bg-blue-500'}`}></span>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="text-slate-400 text-xs italic py-4 text-center">Nenhum registo activo para esta área geográfica.</div>
-                  )}
-                </div>
+                <p className="text-[9px] text-slate-400 uppercase font-bold tracking-wider leading-relaxed">
+                  *As recomendações de saneamento baseiam-se em surtos históricos locais e modelos preditivos de chuva/temperatura de Huíla.
+                </p>
               </div>
 
             </motion.div>

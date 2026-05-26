@@ -93,21 +93,26 @@ const HUILA_MUNICIPALITIES = [
   "Jamba"
 ];
 
-const LUBANGO_NEIGHBORHOODS = [
-  "Tchioco",
-  "Mapunda",
-  "Nambambe",
-  "Santo António",
-  "Centro da Cidade",
-  "Laureanos",
-  "Lucrécia",
-  "João de Almeida",
-  "Comandante Cowboy",
-  "Arco-Íris",
-  "Senzala",
-  "Mitcha",
-  "Bula"
-];
+const HUILA_NEIGHBORHOODS: Record<string, string[]> = {
+  "Lubango": [
+    "Tchioco", "Mapunda", "Nambambe", "Santo António", "Centro da Cidade", 
+    "Laureanos", "Lucrécia", "João de Almeida", "Comandante Cowboy", 
+    "Arco-Íris", "Senzala", "Mitcha", "Bula"
+  ],
+  "Chibia": ["Chibia Sede", "Jau", "Capunda Cavilongo", "Quihita"],
+  "Humpata": ["Humpata Sede", "Neves", "Palanca", "Kaholo", "Bata-Bata"],
+  "Cacula": ["Cacula Sede", "Viti Vivali", "Chituto", "Tchiquaqueia"],
+  "Matala": ["Matala Sede", "Capelongo", "Mulondo", "Micosse"],
+  "Quipungo": ["Quipungo Sede", "Sendi", "Chicungo", "Cainda"],
+  "Chicomba": ["Chicomba Sede", "Libongue", "Cutenda", "Que"],
+  "Caluquembe": ["Caluquembe Sede", "Calepi", "Negola", "M'bula"],
+  "Caconda": ["Caconda Sede", "Cusse", "Gungue", "Uaba"],
+  "Gambos": ["Chiange Sede", "Chibemba", "Gambos Sede"],
+  "Chipindo": ["Chipindo Sede", "Bambi", "Bunjei"],
+  "Kuvango": ["Kuvango Sede", "Galangue", "Vicungo"],
+  "Quilengues": ["Quilengues Sede", "Impulo", "Dongo"],
+  "Jamba": ["Jamba Sede", "Cassinga", "Dongo", "Chamutete"]
+};
 
 export default function PatientsPage() {
   const { user, profile } = useAuth();
@@ -125,6 +130,8 @@ export default function PatientsPage() {
   const [diagnosisSearch, setDiagnosisSearch] = useState<string>("");
 
   // Form State
+  const [activeTab, setActiveTab] = useState<"todos" | "criticos" | "espera" | "atendidos">("todos");
+
   const initialForm: Omit<
     Patient,
     "id" | "createdAt" | "updatedAt" | "patientSerialId"
@@ -280,12 +287,25 @@ export default function PatientsPage() {
     }
   }, [patients]);
 
-  const filteredPatients = patients.filter(
-    (p) =>
+  const filteredPatients = patients.filter((p) => {
+    const matchesSearch =
       p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       p.patientSerialId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.id?.toLowerCase().includes(searchTerm.toLowerCase()),
-  );
+      p.id?.toLowerCase().includes(searchTerm.toLowerCase());
+
+    if (!matchesSearch) return false;
+
+    if (activeTab === "criticos") {
+      return p.priority === "Emergência";
+    }
+    if (activeTab === "espera") {
+      return p.status === "Em Espera";
+    }
+    if (activeTab === "atendidos") {
+      return p.status === "Atendido";
+    }
+    return true;
+  });
 
   return (
     <div className="space-y-6">
@@ -380,6 +400,59 @@ export default function PatientsPage() {
               className="w-full rounded-md border border-slate-200 bg-slate-50 py-2 pl-10 pr-4 text-xs focus:border-blue-500 focus:outline-none transition-all"
             />
           </div>
+        </div>
+
+        {/* Filtros em Abas Interactivas para Casos Críticos, Em Espera, Atendidos */}
+        <div className="border-b border-slate-100 px-6 py-3 flex flex-wrap gap-2 bg-slate-50/50">
+          <button
+            onClick={() => setActiveTab("todos")}
+            className={cn(
+              "px-3.5 py-2 text-xs font-black rounded-lg transition-all border",
+              activeTab === "todos"
+                ? "bg-slate-900 border-slate-900 text-white shadow-sm"
+                : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+            )}
+          >
+            Todos ({patients.length})
+          </button>
+          
+          <button
+            onClick={() => setActiveTab("criticos")}
+            className={cn(
+              "px-3.5 py-2 text-xs font-black rounded-lg transition-all border flex items-center gap-1.5",
+              activeTab === "criticos"
+                ? "bg-red-600 border-red-600 text-white shadow-sm animate-pulse"
+                : "bg-white border-red-200 text-red-600 hover:bg-red-50"
+            )}
+          >
+            <AlertTriangle className={cn("h-3.5 w-3.5", activeTab === "criticos" ? "text-white" : "text-red-500")} />
+            Casos Críticos / Emergências ({patients.filter((p) => p.priority === "Emergência").length})
+          </button>
+
+          <button
+            onClick={() => setActiveTab("espera")}
+            className={cn(
+              "px-3.5 py-2 text-xs font-black rounded-lg transition-all border flex items-center gap-1.5",
+              activeTab === "espera"
+                ? "bg-amber-500 border-amber-500 text-white shadow-sm"
+                : "bg-white border-amber-200 text-amber-600 hover:bg-amber-50"
+            )}
+          >
+            <Clock className={cn("h-3.5 w-3.5", activeTab === "espera" ? "text-white" : "text-amber-500")} />
+            Em Espera ({patients.filter((p) => p.status === "Em Espera").length})
+          </button>
+
+          <button
+            onClick={() => setActiveTab("atendidos")}
+            className={cn(
+              "px-3.5 py-2 text-xs font-black rounded-lg transition-all border flex items-center gap-1.5",
+              activeTab === "atendidos"
+                ? "bg-blue-600 border-blue-600 text-white shadow-sm"
+                : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+            )}
+          >
+            Atendidos ({patients.filter((p) => p.status === "Atendido").length})
+          </button>
         </div>
 
         <div className="overflow-x-auto">
@@ -477,6 +550,13 @@ export default function PatientsPage() {
                   </td>
                 </tr>
               ))}
+              {filteredPatients.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="px-6 py-12 text-center text-slate-400 font-bold">
+                    Nenhum paciente encontrado para este filtro ou pesquisa.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -1047,7 +1127,7 @@ export default function PatientsPage() {
                         setFormData({
                           ...formData,
                           city: m === "Outro" ? "" : m,
-                          neighborhood: m === "Lubango" ? "Tchioco" : "",
+                          neighborhood: HUILA_NEIGHBORHOODS[m] ? HUILA_NEIGHBORHOODS[m][0] : "",
                         });
                       }}
                       className="form-input font-bold text-slate-800"
@@ -1090,11 +1170,11 @@ export default function PatientsPage() {
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                   Bairro / Localidade
                 </label>
-                {formData.province === "Huíla" && formData.city === "Lubango" ? (
+                {formData.province === "Huíla" && HUILA_NEIGHBORHOODS[formData.city] ? (
                   <div className="space-y-1.5">
                     <select
                       value={
-                        formData.neighborhood && LUBANGO_NEIGHBORHOODS.includes(formData.neighborhood)
+                        formData.neighborhood && HUILA_NEIGHBORHOODS[formData.city].includes(formData.neighborhood)
                           ? formData.neighborhood
                           : "Outro"
                       }
@@ -1107,14 +1187,14 @@ export default function PatientsPage() {
                       }}
                       className="form-input font-bold text-slate-800"
                     >
-                      {LUBANGO_NEIGHBORHOODS.map((b) => (
+                      {HUILA_NEIGHBORHOODS[formData.city].map((b) => (
                         <option key={b} value={b}>
                           {b}
                         </option>
                       ))}
                       <option value="Outro">Outro...</option>
                     </select>
-                    {(!formData.neighborhood || !LUBANGO_NEIGHBORHOODS.includes(formData.neighborhood)) && (
+                    {(!formData.neighborhood || !HUILA_NEIGHBORHOODS[formData.city].includes(formData.neighborhood)) && (
                       <input
                         required
                         type="text"
