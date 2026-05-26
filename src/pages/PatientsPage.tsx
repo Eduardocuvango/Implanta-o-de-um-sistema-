@@ -360,27 +360,27 @@ export default function PatientsPage() {
       {/* Metric Cards Row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard
+          label="Total de Pacientes"
+          value={patients.length}
+          color="text-slate-900"
+        />
+        <StatCard
           label="Total Atendidos"
           value={patients.filter((p) => p.status === "Atendido").length}
           color="text-blue-600"
         />
         <StatCard
-          label="Em Espera"
+          label="Fila de Espera"
           value={patients.filter((p) => p.status === "Em Espera").length}
           color="text-amber-600"
         />
         <StatCard
-          label="Emergências"
+          label="Emergências Ativas"
           value={patients.filter((p) => p.priority === "Emergência").length}
           color="text-red-600"
           isAlert={
             patients.filter((p) => p.priority === "Emergência").length > 0
           }
-        />
-        <StatCard
-          label="Eficiência de Fluxo"
-          value="94%"
-          color="text-slate-700"
         />
       </div>
 

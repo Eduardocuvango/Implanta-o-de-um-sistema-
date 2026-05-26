@@ -65,3 +65,16 @@ export interface Patient {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface SystemAlert {
+  id?: string;
+  type: 'epidemiological' | 'emergency';
+  title: string;
+  message: string;
+  recipientEmail: string;
+  recipientPhone: string;
+  triggeredAt: string;
+  symptomOrPatient: string;
+  city: string;
+  status: 'enviado' | 'erro';
+}
