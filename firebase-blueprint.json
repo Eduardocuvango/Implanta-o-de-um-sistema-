@@ -65,9 +65,31 @@
         "alertPhone": { "type": "string" },
         "alertThreshold": { "type": "integer" }
       }
+    },
+    "SystemAlert": {
+      "title": "Alerta do Sistema",
+      "description": "Registro de alerta epidemiológico de emergência",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "type": "string", "enum": ["epidemiological", "emergency"] },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "recipientEmail": { "type": "string" },
+        "recipientPhone": { "type": "string" },
+        "triggeredAt": { "type": "string", "format": "date-time" },
+        "symptomOrPatient": { "type": "string" },
+        "city": { "type": "string" },
+        "status": { "type": "string", "enum": ["enviado", "erro"] }
+      },
+      "required": ["type", "title", "message", "recipientEmail", "recipientPhone", "triggeredAt"]
     }
   },
   "firestore": {
+    "alerts": {
+      "schema": "SystemAlert",
+      "description": "Lista de alertas do sistema e saúde pública no Lubango"
+    },
     "patients": {
       "schema": "Patient",
       "description": "Lista de atendimentos no hospital"

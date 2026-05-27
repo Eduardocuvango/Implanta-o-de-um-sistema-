@@ -178,7 +178,6 @@ export default function PatientsPage() {
 
   useEffect(() => {
     if (showForm) {
-      setFormData(initialForm);
       setAiSupport(null);
     }
   }, [showForm]);
@@ -211,8 +210,9 @@ export default function PatientsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (formData.age > 21) {
-      // We keep the internal logic but show a warning
+    if (formData.age > 15 || formData.age < 0) {
+      alert("Erro de Validação: Estão fora do limite de idade! O Hospital Pediátrico Pioneiro Zeca atende exclusivamente crianças e adolescentes dos 0 aos 15 anos.");
+      return;
     }
 
     try {
@@ -597,10 +597,9 @@ export default function PatientsPage() {
                 <h3 className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500">
                   Secção 01: Identificação do Paciente
                 </h3>
-                {formData.age > 21 && (
-                  <div className="flex items-center gap-1.5 px-3 py-1 bg-red-100 text-red-700 rounded text-[9px] font-black animate-pulse">
-                    <AlertTriangle className="h-3 w-3" /> FORA DA FAIXA ETÁRIA
-                    (&gt;21 ANOS)
+                {(formData.age > 15 || formData.age < 0) && formData.birthDate !== "" && (
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 bg-red-100 text-red-750 border border-red-200 rounded-lg text-[10px] font-black animate-pulse">
+                    <AlertTriangle className="h-4 w-4 text-red-650" /> FORA DA FAIXA ETÁRIA (0-15 ANOS)
                   </div>
                 )}
               </div>
@@ -647,24 +646,42 @@ export default function PatientsPage() {
                   type="date"
                   value={formData.birthDate}
                   onChange={(e) => handleBirthDateChange(e.target.value)}
-                  className="form-input"
+                  className={cn(
+                    "form-input",
+                    (formData.age > 15 || formData.age < 0) && formData.birthDate !== "" && "border-red-500 bg-red-50/20 focus:border-red-650"
+                  )}
                 />
+                {(formData.age > 15 || formData.age < 0) && formData.birthDate !== "" && (
+                  <p className="text-red-650 text-[10px] font-bold mt-1 flex items-center gap-1">
+                    <AlertTriangle className="h-3.5 w-3.5" /> Admissão reservada de 0 a 15 anos de idade.
+                  </p>
+                )}
               </div>
 
               <div className="space-y-1">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                   Idade / Faixa Calculada
                 </label>
-                <div className="flex gap-1">
+                <div className="flex gap-1 font-semibold">
                   <input
                     disabled
-                    value={`${formData.age} ANOS`}
-                    className="form-input w-24 bg-slate-100 border-none font-bold text-blue-600"
+                    value={formData.birthDate === "" ? "-" : `${formData.age} ANOS`}
+                    className={cn(
+                      "form-input w-24 border-none font-bold",
+                      (formData.age > 15 || formData.age < 0) && formData.birthDate !== ""
+                        ? "bg-red-100 text-red-700 font-extrabold"
+                        : "bg-slate-100 text-blue-600"
+                    )}
                   />
                   <input
                     disabled
-                    value={formData.ageGroup}
-                    className="form-input flex-1 bg-slate-100 border-none text-[10px] font-extrabold tracking-tighter"
+                    value={formData.birthDate === "" ? "Selecione a Data" : formData.ageGroup}
+                    className={cn(
+                      "form-input flex-1 border-none text-[10px] font-extrabold tracking-tighter uppercase",
+                      (formData.age > 15 || formData.age < 0) && formData.birthDate !== ""
+                        ? "bg-red-100 text-red-700 font-black text-[9px]"
+                        : "bg-slate-100 text-slate-800"
+                    )}
                   />
                 </div>
               </div>

@@ -16,11 +16,12 @@ export function calculateAge(birthDate: Date): number {
 }
 
 export function getAgeGroup(age: number): string {
+  if (age < 0) return 'Idade Inválida';
   if (age <= 1) return 'Recém-nascido/Lactante';
   if (age <= 5) return 'Pré-escolar';
   if (age <= 12) return 'Escolar';
-  if (age <= 21) return 'Adolescente/Jovem';
-  return 'Adulto';
+  if (age <= 15) return 'Adolescente (Até 15 anos)';
+  return 'Fora do Limite Pediátrico (> 15 anos)';
 }
 
 export function translateFirebaseAuthError(code: string): string {

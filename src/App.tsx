@@ -13,8 +13,10 @@ import PatientsPage from './pages/PatientsPage';
 import ProfilePage from './pages/ProfilePage';
 import SettingsPage from './pages/SettingsPage';
 import { Layout } from './components/Layout';
+import LocalApp from './local-pioneiro/App';
+import { Database } from 'lucide-react';
 
-function AppContent() {
+function AppContent({ onSwitchToLocal }: { onSwitchToLocal: () => void }) {
   const { user, profile, loading } = useAuth();
   const [view, setView] = useState<'landing' | 'login' | 'register' | 'dashboard' | 'patients' | 'profile' | 'settings'>('landing');
 
@@ -76,16 +78,49 @@ function AppContent() {
   };
 
   return (
-    <Layout currentView={view} onNavigate={navigate}>
-      {renderView()}
-    </Layout>
+    <div className="relative">
+      {/* Dynamic Offline / Local Mode suggestions for Landing, Login, and Register */}
+      {(view === 'landing' || view === 'login' || view === 'register') && (
+        <div className="fixed bottom-6 right-6 z-50 animate-bounce">
+          <button
+            onClick={onSwitchToLocal}
+            className="flex items-center gap-2 rounded-2xl bg-emerald-600 px-5 py-4 text-xs font-black uppercase tracking-widest text-white shadow-2xl hover:bg-emerald-500 cursor-pointer transition-all active:scale-95"
+          >
+            <Database className="h-4.5 w-4.5" />
+            Aceder à Cópia Local (Sem Autenticação) 🗄️
+          </button>
+        </div>
+      )}
+
+      <Layout currentView={view} onNavigate={navigate}>
+        {renderView()}
+      </Layout>
+    </div>
   );
 }
 
 export default function App() {
+  const [localMode, setLocalMode] = useState<boolean>(() => {
+    return localStorage.getItem('op_mode_pioneiro') === 'local';
+  });
+
+  const handleSwitchToLocal = () => {
+    localStorage.setItem('op_mode_pioneiro', 'local');
+    setLocalMode(true);
+  };
+
+  const handleReturnToCloud = () => {
+    localStorage.setItem('op_mode_pioneiro', 'cloud');
+    setLocalMode(false);
+  };
+
+  if (localMode) {
+    return <LocalApp onReturnToCloud={handleReturnToCloud} />;
+  }
+
   return (
     <AuthProvider>
-      <AppContent />
+      <AppContent onSwitchToLocal={handleSwitchToLocal} />
     </AuthProvider>
   );
 }

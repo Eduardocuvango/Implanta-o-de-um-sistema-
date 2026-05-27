@@ -3,8 +3,35 @@ import path from "path";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
+import admin from "firebase-admin";
+import fs from "fs";
 
 dotenv.config();
+
+let adminAppInitialized = false;
+
+function getFirebaseAdmin() {
+  if (!adminAppInitialized) {
+    try {
+      const configPath = path.join(process.cwd(), "firebase-applet-config.json");
+      if (fs.existsSync(configPath)) {
+        const config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
+        admin.initializeApp({
+          projectId: config.projectId,
+        });
+        adminAppInitialized = true;
+        console.log("Firebase Admin SDK initialized with project ID:", config.projectId);
+      } else {
+        admin.initializeApp();
+        adminAppInitialized = true;
+        console.log("Firebase Admin SDK initialized with default credentials");
+      }
+    } catch (error) {
+      console.error("Error initializing Firebase Admin SDK:", error);
+    }
+  }
+  return admin;
+}
 
 async function startServer() {
   const app = express();
@@ -142,6 +169,63 @@ async function startServer() {
       console.error("Gemini AI Insights Server Error:", err);
       return res.json({ 
         text: "⚠️ Não foi possível sincronizar o motor analítico com a Gemini neste momento (Ligar chave API de secrets ou verifique conexão)." 
+      });
+    }
+  });
+
+  // 3. Delete registered accounts (Firebase Auth) via Admin SDK safely
+  app.post("/api/admin/delete-user", async (req, res) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({ error: "Cabeçalho de autorização não fornecido ou inválido." });
+    }
+
+    const idToken = authHeader.split(" ")[1];
+    const { uidToDelete } = req.body;
+
+    if (!uidToDelete) {
+      return res.status(400).json({ error: "O UID do utilizador a remover é obrigatório." });
+    }
+
+    try {
+      const fbAdmin = getFirebaseAdmin();
+      // Verify requester's token to protect the endpoint
+      const decodedToken = await fbAdmin.auth().verifyIdToken(idToken);
+      const requesterUid = decodedToken.uid;
+      const requesterEmail = decodedToken.email;
+
+      // Check if requester is authorized:
+      // Either email is 'eduardocuvangohd@gmail.com' or check Firestore users collection for 'admin' role
+      const isAdminUser = requesterEmail === 'eduardocuvangohd@gmail.com';
+      let hasAdminPrivilege = isAdminUser;
+
+      if (!hasAdminPrivilege) {
+        const dbAdmin = fbAdmin.firestore();
+        const userDoc = await dbAdmin.collection("users").doc(requesterUid).get();
+        if (userDoc.exists && userDoc.data()?.role === "admin") {
+          hasAdminPrivilege = true;
+        }
+      }
+
+      if (!hasAdminPrivilege) {
+        return res.status(403).json({ error: "Apenas administradores podem apagar contas do sistema." });
+      }
+
+      // Execute Auth delete
+      await fbAdmin.auth().deleteUser(uidToDelete);
+      console.log(`[Admin SDK] Utilizador ${uidToDelete} foi removido com sucesso do Firebase Authentication.`);
+      
+      return res.json({ success: true, message: "Utilizador removido do Firebase Authentication com sucesso." });
+    } catch (err: any) {
+      console.error("Erro ao apagar utilizador via Admin SDK:", err);
+      
+      // If user doesn't exist in Firebase Authentication, we can still return success because the final goal is met
+      if (err.code === "auth/user-not-found") {
+        return res.json({ success: true, message: "Utilizador já não existia no Firebase Authentication." });
+      }
+      
+      return res.status(500).json({ 
+        error: "Erro do Admin SDK ao apagar utilizador: " + (err.message || err.code || err) 
       });
     }
   });

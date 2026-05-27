@@ -213,6 +213,7 @@ export default function SettingsPage() {
   };
 
   const handleDeauthorize = async (email: string) => {
+    if (!email) return;
     const isLocalStaff = email.endsWith("@pioneirozeca.local");
     const label = isLocalStaff ? email.split("@")[0] : email;
     if (
@@ -222,38 +223,43 @@ export default function SettingsPage() {
     ) {
       try {
         await adminService.deauthorizeUser(email);
-        const matchingProfile = userProfiles.find(p => p.email.toLowerCase() === email.toLowerCase());
+        const matchingProfile = userProfiles.find(p => p.email && p.email.toLowerCase() === email.toLowerCase());
         if (matchingProfile) {
           await userService.deleteProfile(matchingProfile.uid);
         }
-        loadData();
-      } catch (err) {
+        await loadData();
+        alert(`Sucesso: A autorização e perfil para "${label}" foram removidos com sucesso.`);
+      } catch (err: any) {
         console.error(err);
+        alert(`Erro ao remover autorização: ${err.message || err}`);
       }
     }
   };
 
   const handleDeleteProfile = async (uid: string, profileEmail: string) => {
     const isSelf = uid === user?.uid;
-    const isLocalStaff = profileEmail.endsWith("@pioneirozeca.local");
-    const label = isLocalStaff ? profileEmail.split("@")[0] : profileEmail;
+    const safeEmail = profileEmail || "";
+    const isLocalStaff = safeEmail.endsWith("@pioneirozeca.local");
+    const label = isLocalStaff ? safeEmail.split("@")[0] : (safeEmail || "sem e-mail");
     const confirmMessage = isSelf
       ? "ATENÇÃO CRÍTICA: Está prestes a APAGAR a sua própria conta de administrador! Será desconectado do sistema imediatamente. Deseja prosseguir?"
-      : `Tem a certeza que deseja apagar permanentemente a conta de utilizador ${label} e revogar a sua autorização?`;
+      : `Tem a certeza que deseja apagar permanentemente a conta de utilizador "${label}" e revogar a sua autorização?`;
 
     if (window.confirm(confirmMessage)) {
       try {
         await userService.deleteProfile(uid);
-        if (profileEmail) {
-          await adminService.deauthorizeUser(profileEmail);
+        if (safeEmail) {
+          await adminService.deauthorizeUser(safeEmail);
         }
         if (isSelf) {
           await signOut(firebaseAuth);
         } else {
-          loadData();
+          await loadData();
+          alert(`Sucesso: A conta "${label}" foi removida permanentemente de todos os registos do sistema.`);
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error(err);
+        alert(`Erro ao apagar conta: ${err.message || err}`);
       }
     }
   };

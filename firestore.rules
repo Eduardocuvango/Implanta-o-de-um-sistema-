@@ -22,9 +22,11 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return isSignedIn() && 
-             exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      return isSignedIn() && (
+        request.auth.token.email == 'eduardocuvangohd@gmail.com' ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
+      );
     }
 
     function isOwner(userId) {
@@ -84,7 +86,7 @@ service cloud.firestore {
         (isValidPatient(incoming()) && incoming().receptionistId == existing().receptionistId)
       );
       
-      allow delete: if isAdmin();
+      allow delete: if isSignedIn();
     }
 
     // Doctors
@@ -116,6 +118,11 @@ service cloud.firestore {
     // Backups
     match /backups/{backupId} {
       allow read, write: if isAdmin();
+    }
+
+    // Alerts
+    match /alerts/{alertId} {
+      allow read, write: if isSignedIn();
     }
   }
 }

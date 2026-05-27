@@ -70,6 +70,32 @@ export const userService = {
     try {
       const { doc, deleteDoc } = await import('firebase/firestore');
       const docRef = doc(db, COLLECTION_NAME, uid);
+      
+      // Attempt to delete credentials from Firebase Auth via Admin SDK backend proxy first.
+      try {
+        const { auth } = await import('../lib/firebase');
+        const token = await auth.currentUser?.getIdToken();
+        if (token) {
+          const response = await fetch('/api/admin/delete-user', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ uidToDelete: uid })
+          });
+          
+          if (!response.ok) {
+            const errData = await response.json().catch(() => ({}));
+            console.warn('[Admin SDK Bypass] Could not delete user auth payload:', errData.error || response.statusText);
+          } else {
+            console.log('[Admin SDK] Successfully deleted account credentials from auth.');
+          }
+        }
+      } catch (authError) {
+        console.error('Error during fetch call to remote Admin deletion:', authError);
+      }
+
       return await deleteDoc(docRef);
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, path);

@@ -5,7 +5,7 @@ import { Patient } from '../types';
 import InteractiveMap from '../components/InteractiveMap';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
-  PieChart, Pie, Cell, Legend
+  PieChart, Pie, Cell, Legend, AreaChart, Area
 } from 'recharts';
 import { 
   Activity, Users, Clock, AlertTriangle, TrendingUp, 
@@ -22,6 +22,7 @@ export default function DashboardPage() {
   const [aiInsights, setAiInsights] = useState<string>('');
   const [loadingAi, setLoadingAi] = useState(false);
   const [lastSync, setLastSync] = useState<Date>(new Date());
+  const [temporalMode, setTemporalMode] = useState<'semanal' | 'mensal'>('semanal');
   const lastAnalysis = React.useRef<number>(0);
 
   useEffect(() => {
@@ -105,6 +106,37 @@ export default function DashboardPage() {
     name: city,
     value: patients.filter(p => p.city === city).length
   })).sort((a, b) => b.value - a.value).slice(0, 5);
+
+  // Group visits by Day of the Week
+  const daysOfWeek = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
+  const daysOfWeekAbbr = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+  const weeklyCounts = Array(7).fill(0);
+  patients.forEach(p => {
+    const rawDate = p.createdAt || p.occurrenceDate;
+    const date = rawDate ? new Date(rawDate) : new Date();
+    const day = date.getDay();
+    weeklyCounts[day]++;
+  });
+  const labelOrder = [1, 2, 3, 4, 5, 6, 0]; // Monday to Sunday
+  const weeklyData = labelOrder.map(dayIndex => ({
+    name: daysOfWeekAbbr[dayIndex],
+    fullName: daysOfWeek[dayIndex],
+    "Casos": weeklyCounts[dayIndex]
+  }));
+
+  // Group visits by Month of the Year
+  const monthsAbbr = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+  const monthlyCounts = Array(12).fill(0);
+  patients.forEach(p => {
+    const rawDate = p.createdAt || p.occurrenceDate;
+    const date = rawDate ? new Date(rawDate) : new Date();
+    const month = date.getMonth();
+    monthlyCounts[month]++;
+  });
+  const monthlyData = monthsAbbr.map((name, idx) => ({
+    name,
+    "Casos": monthlyCounts[idx]
+  }));
 
   const generateAiInsights = async () => {
     setLoadingAi(true);
@@ -334,6 +366,99 @@ export default function DashboardPage() {
       <div className="grid grid-cols-12 gap-8">
         {/* Epidemic, Symptoms and Outcomes (Line & Bar reports) */}
         <div className="col-span-12 lg:col-span-8 space-y-8">
+          
+          {/* Evolução Temporal das Triagens (Semanal / Mensal) */}
+          <div id="chart-temporal-flow" className="bg-white p-6 sm:p-8 rounded-[2rem] border border-slate-200 shadow-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+              <div className="flex items-center gap-3">
+                <div className="bg-blue-50 p-3 rounded-2xl">
+                  <TrendingUp className="h-6 w-6 text-blue-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight">Fluxo e Evolução de Triagem</h3>
+                  <p className="text-xs text-slate-500 font-medium">Acompanhamento temporal por dia de semana ou mês</p>
+                </div>
+              </div>
+              <div className="flex bg-slate-100 p-1.5 rounded-xl border border-slate-200 self-start sm:self-auto">
+                <button
+                  type="button"
+                  onClick={() => setTemporalMode('semanal')}
+                  className={cn(
+                    "px-4 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all cursor-pointer",
+                    temporalMode === 'semanal' 
+                      ? "bg-white text-blue-600 shadow" 
+                      : "text-slate-500 hover:text-slate-900"
+                  )}
+                >
+                  Semana (Dias)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTemporalMode('mensal')}
+                  className={cn(
+                    "px-4 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all cursor-pointer",
+                    temporalMode === 'mensal' 
+                      ? "bg-white text-blue-600 shadow" 
+                      : "text-slate-500 hover:text-slate-900"
+                  )}
+                >
+                  Meses (Histórico)
+                </button>
+              </div>
+            </div>
+
+            <div className="h-[280px] w-full">
+              {stats.total > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart 
+                    data={temporalMode === 'semanal' ? weeklyData : monthlyData}
+                    margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+                  >
+                    <defs>
+                      <linearGradient id="colorCasos" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.4}/>
+                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                    <XAxis 
+                      dataKey="name" 
+                      axisLine={false} 
+                      tickLine={false} 
+                      tick={{ fontSize: 10, fill: '#64748b' }} 
+                    />
+                    <YAxis 
+                      axisLine={false} 
+                      tickLine={false} 
+                      tick={{ fontSize: 10, fill: '#64748b' }} 
+                      allowDecimals={false}
+                    />
+                    <Tooltip 
+                      contentStyle={{ 
+                        borderRadius: '16px', 
+                        border: '1px solid #e2e8f0', 
+                        boxShadow: '0 4px 20px rgba(0,0,0,0.05)',
+                        fontSize: '11px'
+                      }} 
+                    />
+                    <Area 
+                      type="monotone" 
+                      dataKey="Casos" 
+                      stroke="#3b82f6" 
+                      strokeWidth={3} 
+                      fillOpacity={1} 
+                      fill="url(#colorCasos)" 
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-full flex flex-col items-center justify-center text-center text-slate-400">
+                  <TrendingUp className="h-10 w-10 stroke-1 stroke-slate-300 mb-2 animate-pulse" />
+                  <p className="text-sm">Nenhum dado temporal disponível para traçar tendências.</p>
+                </div>
+              )}
+            </div>
+          </div>
           
           {/* Epidemiological Surtos & Prevalência de Sintomas */}
           <div className="bg-white p-6 sm:p-8 rounded-[2rem] border border-slate-200 shadow-sm">

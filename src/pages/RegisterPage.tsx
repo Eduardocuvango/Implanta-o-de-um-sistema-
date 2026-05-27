@@ -138,7 +138,16 @@ export default function RegisterPage({ onNavigate }: { onNavigate: (view: any) =
       }
       onNavigate(assignedRole === 'admin' ? 'dashboard' : 'patients');
     } catch (err: any) {
-      setError('Falha no registo via Google.');
+      console.error("Erro no registo via Google:", err);
+      let errMsg = "Falha no registo via Google.";
+      if (err.code === 'auth/operation-not-supported-in-this-environment' || err.code === 'auth/popup-blocked' || err.code === 'auth/iframe-auth-cancelled' || (err.message && err.message.toLowerCase().includes('iframe'))) {
+        errMsg = "Bloqueio de Iframe/Popup: Se estiver a testar a aplicação dentro da pré-visualização do AI Studio, clique em 'Abra em uma nova guia' (canto superior direito da tela) para que o popup do Google funcione corretamente. Erro: " + (err.message || err.code);
+      } else if (err.code === 'auth/configuration-not-found') {
+        errMsg = "Falha de Configuração do Firebase: O fornecedor 'Google' ainda não foi ativado na consola do seu Firebase. Vá a Authentication -> Sign-in Method e ative o 'Google'.";
+      } else {
+        errMsg = `Falha na ligação via Google: ${err.message || err.code || err}`;
+      }
+      setError(errMsg);
     } finally {
       setLoading(false);
     }
